@@ -1,0 +1,22 @@
+<resources>
+    <string name="app_name">CarN-Go</string>
+    <string name="find_your_daily_ride">Find your daily ride.</string>
+    <string name="search_hint">Search for a budget car...</string>
+    <string name="car_types">Car Types</string>
+    <string name="economy">Economy</string>
+    <string name="compact">Compact</string>
+    <string name="hybrid">Hybrid</string>
+    <string name="available_nearby">Available Nearby</string>
+    <string name="nearby_subtitle">Perfect for school, work, or errands</string>
+    <string name="filter">Filter</string>
+    <string name="price_per_hour">$%1$d / hour</string>
+    <string name="seats_count">%1$d Seats</string>
+    <string name="no_cars_yet">No cars yet</string>
+    <string name="no_cars_subtitle">Your fleet will appear here once you add your first car.</string>
+    <string name="add_a_car">Add a Car</string>
+    <string name="booking_summary">Booking Summary</string>
+    <string name="confirm_booking">Confirm Booking</string>
+    <string name="total_days">Total (%1$d days)</string>
+    <string name="price_format">$%1$.2f</string>
+    <string name="price_per_day">$%1$d / day</string>
+</resources>

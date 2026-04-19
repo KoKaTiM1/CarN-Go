@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/browseCarsFragment"
+        android:icon="@android:drawable/ic_menu_search"
+        android:title="Explore" />
+    <item
+        android:id="@+id/myCarsFragment"
+        android:icon="@android:drawable/ic_menu_directions"
+        android:title="My Cars" />
+    <item
+        android:id="@+id/bookingSummaryFragment"
+        android:icon="@android:drawable/ic_menu_agenda"
+        android:title="Bookings" />
+</menu>

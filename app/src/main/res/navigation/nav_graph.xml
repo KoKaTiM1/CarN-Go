@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/browseCarsFragment">
+
+    <fragment
+        android:id="@+id/browseCarsFragment"
+        android:name="com.dirtyfly.carn_go.ui.BrowseCarsFragment"
+        android:label="Browse Cars"
+        tools:layout="@layout/fragment_browse_cars">
+        <action
+            android:id="@+id/action_browseCarsFragment_to_carDetailsFragment"
+            app:destination="@id/carDetailsFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/carDetailsFragment"
+        android:name="com.dirtyfly.carn_go.ui.CarDetailsFragment"
+        android:label="Car Details"
+        tools:layout="@layout/fragment_car_details">
+        <argument
+            android:name="car"
+            app:argType="com.dirtyfly.carn_go.model.Car" />
+        <action
+            android:id="@+id/action_carDetailsFragment_to_bookingSummaryFragment"
+            app:destination="@id/bookingSummaryFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/bookingSummaryFragment"
+        android:name="com.dirtyfly.carn_go.ui.BookingSummaryFragment"
+        android:label="Booking Summary"
+        tools:layout="@layout/fragment_booking_summary">
+        <argument
+            android:name="car"
+            app:argType="com.dirtyfly.carn_go.model.Car" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/myCarsFragment"
+        android:name="com.dirtyfly.carn_go.ui.MyCarsFragment"
+        android:label="My Cars"
+        tools:layout="@layout/fragment_my_cars" />
+
+</navigation>

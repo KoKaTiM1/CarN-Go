@@ -1,0 +1,91 @@
+package com.dirtyfly.carn_go.adapter;
+
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.ImageView;
+import android.widget.TextView;
+
+import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.RecyclerView;
+
+import com.bumptech.glide.Glide;
+import com.dirtyfly.carn_go.R;
+import com.dirtyfly.carn_go.model.Car;
+
+import java.util.List;
+
+public class CarAdapter extends RecyclerView.Adapter<CarAdapter.CarViewHolder> {
+
+    private List<Car> carList;
+    private OnCarClickListener listener;
+
+    public interface OnCarClickListener {
+        void onCarClick(Car car);
+    }
+
+    public CarAdapter(List<Car> carList, OnCarClickListener listener) {
+        this.carList = carList;
+        this.listener = listener;
+    }
+
+    @NonNull
+    @Override
+    public CarViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+        View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_car, parent, false);
+        return new CarViewHolder(view);
+    }
+
+    @Override
+    public void onBindViewHolder(@NonNull CarViewHolder holder, int position) {
+        Car car = carList.get(position);
+        holder.tvCarName.setText(car.getName());
+        holder.tvLocation.setText(car.getLocation());
+        
+        holder.tvPrice.setText(holder.itemView.getContext().getString(R.string.price_per_hour, (int)car.getPricePerHour()));
+        holder.tvRating.setText(String.valueOf(car.getRating()));
+        holder.tvTransmission.setText(car.getTransmission());
+        holder.tvSeats.setText(holder.itemView.getContext().getString(R.string.seats_count, car.getSeats()));
+        holder.tvTag.setText(car.getTag());
+        
+        if (car.getTag() == null || car.getTag().isEmpty()) {
+            holder.tagBackground.setVisibility(View.GONE);
+            holder.tvTag.setVisibility(View.GONE);
+        } else {
+            holder.tagBackground.setVisibility(View.VISIBLE);
+            holder.tvTag.setVisibility(View.VISIBLE);
+        }
+
+        Glide.with(holder.itemView.getContext())
+                .load(car.getImageUrl())
+                .into(holder.ivCarImage);
+
+        holder.itemView.setOnClickListener(v -> listener.onCarClick(car));
+        holder.btnDetails.setOnClickListener(v -> listener.onCarClick(car));
+    }
+
+    @Override
+    public int getItemCount() {
+        return carList.size();
+    }
+
+    static class CarViewHolder extends RecyclerView.ViewHolder {
+        ImageView ivCarImage;
+        TextView tvCarName, tvLocation, tvPrice, tvRating, tvTransmission, tvSeats, tvTag;
+        View tagBackground, btnDetails;
+
+        public CarViewHolder(@NonNull View itemView) {
+            super(itemView);
+            ivCarImage = itemView.findViewById(R.id.ivCarImage);
+            tvCarName = itemView.findViewById(R.id.tvCarName);
+            tvLocation = itemView.findViewById(R.id.tvLocation);
+            tvPrice = itemView.findViewById(R.id.tvPrice);
+            tvRating = itemView.findViewById(R.id.tvRating);
+            tvTransmission = itemView.findViewById(R.id.tvTransmission);
+            tvSeats = itemView.findViewById(R.id.tvSeats);
+            tvTag = itemView.findViewById(R.id.tvTag);
+            tagBackground = itemView.findViewById(R.id.tagBackground);
+            btnDetails = itemView.findViewById(R.id.btnDetails);
+        }
+    }
+}
