@@ -25,17 +25,22 @@ import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.firebase.messaging.FirebaseMessaging;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.firebase.FirestoreHelper;
+
 
 public class MainActivity extends AppCompatActivity {
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // Enable edge-to-edge display for a modern UI look
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
 
+        // Request notification permissions for Android 13+ (Tiramisu)
         askNotificationPermission();
 
+
+        // Initialize Firebase Cloud Messaging (FCM) to get the device registration token
         FirebaseMessaging.getInstance().getToken()
                 .addOnCompleteListener(new OnCompleteListener<String>() {@Override
                 public void onComplete(@NonNull Task<String> task) {
@@ -46,21 +51,21 @@ public class MainActivity extends AppCompatActivity {
 
                     // Get new FCM registration token
                     String token = task.getResult();
-
-                    // Log and toast
+                    // Log the token for debugging purposes
                     Log.d("FCM", "Token: " + token);
-
-                    // TODO: Save this token to your database (Firestore/Realtime Database)
-                    // saveTokenToDatabase(token);
+                    // Update the user's token in Firestore for targeted notifications
+                    FirestoreHelper.updateUserToken(MainActivity.this, token);
                 }
                 });
 
+        // Adjust view padding to account for system bars (status bar, navigation bar)
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, 0);
             return insets;
         });
 
+        // Set up Navigation component with BottomNavigationView
         NavHostFragment navHostFragment = (NavHostFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.nav_host_fragment);
         if (navHostFragment != null) {
@@ -70,16 +75,24 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // Declare the launcher at the top of your Activity/Fragment:
+    /**
+     * Launcher for notification permission request.
+     * Handles the user's response to the permission dialog.
+     */
     private final ActivityResultLauncher<String> requestPermissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
                 if (isGranted) {
                     // FCM SDK (and your app) can post notifications.
+                    Log.d("Permission", "Notification permission granted");
                 } else {
                     // TODO: Inform user that that your app will not show notifications.
+                    Log.d("Permission", "Notification permission denied");
                 }
             });
 
+    /**
+     * Checks and requests notification permissions if required by the Android version.
+     */
     private void askNotificationPermission() {
         // This is only necessary for API level >= 33 (TIRAMISU)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -97,8 +110,6 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     }
-
-
-
 }
 
+// TODO: Add notification channel for the FCM notification
