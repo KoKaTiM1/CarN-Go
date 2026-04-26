@@ -11,11 +11,15 @@ import androidx.fragment.app.Fragment;
 
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.R;
 
+/**
+ * Fragment that displays the cars owned or rented by the current user.
+ */
 public class MyCarsFragment extends Fragment {
 
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
+        // Inflate the layout for this fragment
         return inflater.inflate(R.layout.fragment_my_cars, container, false);
     }
 }

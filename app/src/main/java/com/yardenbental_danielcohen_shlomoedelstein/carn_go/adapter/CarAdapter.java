@@ -15,11 +15,17 @@ import com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Car;
 
 import java.util.List;
 
+/**
+ * Adapter for displaying a list of Car objects in a RecyclerView.
+ */
 public class CarAdapter extends RecyclerView.Adapter<CarAdapter.CarViewHolder> {
 
     private List<Car> carList;
     private OnCarClickListener listener;
 
+    /**
+     * Interface to handle clicks on car items in the list.
+     */
     public interface OnCarClickListener {
         void onCarClick(Car car);
     }
@@ -32,6 +38,7 @@ public class CarAdapter extends RecyclerView.Adapter<CarAdapter.CarViewHolder> {
     @NonNull
     @Override
     public CarViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+        // Inflate the car item layout
         View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_car, parent, false);
         return new CarViewHolder(view);
     }
@@ -39,6 +46,8 @@ public class CarAdapter extends RecyclerView.Adapter<CarAdapter.CarViewHolder> {
     @Override
     public void onBindViewHolder(@NonNull CarViewHolder holder, int position) {
         Car car = carList.get(position);
+        
+        // Bind car data to UI elements
         holder.tvCarName.setText(car.getName());
         holder.tvLocation.setText(car.getLocation());
         
@@ -48,6 +57,7 @@ public class CarAdapter extends RecyclerView.Adapter<CarAdapter.CarViewHolder> {
         holder.tvSeats.setText(holder.itemView.getContext().getString(R.string.seats_count, car.getSeats()));
         holder.tvTag.setText(car.getTag());
         
+        // Show or hide the tag based on whether it's available
         if (car.getTag() == null || car.getTag().isEmpty()) {
             holder.tagBackground.setVisibility(View.GONE);
             holder.tvTag.setVisibility(View.GONE);
@@ -56,10 +66,12 @@ public class CarAdapter extends RecyclerView.Adapter<CarAdapter.CarViewHolder> {
             holder.tvTag.setVisibility(View.VISIBLE);
         }
 
+        // Load the car image using Glide
         Glide.with(holder.itemView.getContext())
                 .load(car.getImageUrl())
                 .into(holder.ivCarImage);
 
+        // Set click listeners for the item and the details button
         holder.itemView.setOnClickListener(v -> listener.onCarClick(car));
         holder.btnDetails.setOnClickListener(v -> listener.onCarClick(car));
     }
@@ -69,6 +81,9 @@ public class CarAdapter extends RecyclerView.Adapter<CarAdapter.CarViewHolder> {
         return carList.size();
     }
 
+    /**
+     * ViewHolder class for holding references to car item views.
+     */
     static class CarViewHolder extends RecyclerView.ViewHolder {
         ImageView ivCarImage;
         TextView tvCarName, tvLocation, tvPrice, tvRating, tvTransmission, tvSeats, tvTag;

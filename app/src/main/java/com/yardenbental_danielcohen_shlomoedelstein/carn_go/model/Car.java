@@ -2,6 +2,10 @@ package com.yardenbental_danielcohen_shlomoedelstein.carn_go.model;
 
 import java.io.Serializable;
 
+/**
+ * Model class representing a Car in the system.
+ * Implements Serializable to allow passing Car objects between components via Bundles or Intents.
+ */
 public class Car implements Serializable {
     private String name;
     private String type;
@@ -14,6 +18,9 @@ public class Car implements Serializable {
     private String fuelType;
     private String tag;
 
+    /**
+     * Constructs a new Car with the specified details.
+     */
     public Car(String name, String type, String location, double pricePerHour, double rating, String imageUrl, String transmission, int seats, String fuelType, String tag) {
         this.name = name;
         this.type = type;
