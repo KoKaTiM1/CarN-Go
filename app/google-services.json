@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1023586800491",
+    "project_id": "carn-go",
+    "storage_bucket": "carn-go.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1023586800491:android:b6c2039bdc5c46cc81322e",
+        "android_client_info": {
+          "package_name": "com.yardenbental_danielcohen_shlomoedelstein.carn_go"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyADGb_gHeeNXHUCU4xl1DKvUc97iO-t31w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
