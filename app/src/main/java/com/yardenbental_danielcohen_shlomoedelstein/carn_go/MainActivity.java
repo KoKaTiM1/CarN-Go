@@ -111,5 +111,3 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 }
-
-// TODO: Add notification channel for the FCM notification
