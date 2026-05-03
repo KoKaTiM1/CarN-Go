@@ -24,6 +24,7 @@ import androidx.navigation.ui.NavigationUI;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.firebase.FirestoreHelper;
 
@@ -39,25 +40,8 @@ public class MainActivity extends AppCompatActivity {
         // Request notification permissions for Android 13+ (Tiramisu)
         askNotificationPermission();
 
-
-        // Initialize Firebase Cloud Messaging (FCM) to get the device registration token
-        FirebaseMessaging.getInstance().getToken()
-                .addOnCompleteListener(new OnCompleteListener<String>() {@Override
-                public void onComplete(@NonNull Task<String> task) {
-                    if (!task.isSuccessful()) {
-                        Log.w("FCM", "Fetching FCM registration token failed", task.getException());
-                        return;
-                    }
-
-                    // Get new FCM registration token
-                    String token = task.getResult();
-                    // Log the token for debugging purposes
-                    Log.d("FCM", "Token: " + token);
-                    // Update the user's token in Firestore for targeted notifications
-                    FirestoreHelper.updateUserToken(MainActivity.this, token);
-                }
-                });
-
+        // Ensure user is signed in anonymously to have a consistent UID for notifications and car listings
+        signInAnonymously();
         // Adjust view padding to account for system bars (status bar, navigation bar)
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
@@ -89,6 +73,49 @@ public class MainActivity extends AppCompatActivity {
                     Log.d("Permission", "Notification permission denied");
                 }
             });
+
+    /**
+     * Signs in the user anonymously if they are not already signed in.
+     * This provides a consistent UID for car ownership and FCM token storage.
+     */
+    private void signInAnonymously() {
+        FirebaseAuth auth = FirebaseAuth.getInstance();
+        if (auth.getCurrentUser() == null) {
+            auth.signInAnonymously().addOnCompleteListener(this, task -> {
+                if (task.isSuccessful()) {
+                    Log.d("Auth", "signInAnonymously:success");
+                    initializeFCM();
+                } else {
+                    Exception e = task.getException();
+                    Log.w("Auth", "signInAnonymously:failure", e);
+                    if (e != null && e.getMessage() != null && e.getMessage().contains("CONFIGURATION_NOT_FOUND")) {
+                        Log.e("Auth", "ERROR: Anonymous Authentication is not enabled in the Firebase Console.");
+                    }
+                    // Fallback to initializing FCM anyway (FirestoreHelper will use SharedPreferences ID)
+                    initializeFCM();
+                }
+            });
+        } else {
+            // Already signed in
+            initializeFCM();
+        }
+    }
+
+    /**
+     * Initializes FCM and retrieves the registration token.
+     */
+    private void initializeFCM() {
+        FirebaseMessaging.getInstance().getToken()
+                .addOnCompleteListener(task -> {
+                    if (!task.isSuccessful()) {
+                        Log.w("FCM", "Fetching FCM registration token failed", task.getException());
+                        return;
+                    }
+                    String token = task.getResult();
+                    Log.d("FCM", "Token: " + token);
+                    FirestoreHelper.updateUserToken(MainActivity.this, token);
+                });
+    }
 
     /**
      * Checks and requests notification permissions if required by the Android version.

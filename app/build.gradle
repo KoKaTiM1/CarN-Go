@@ -34,6 +34,7 @@ android {
 }
 
 dependencies {
+    // UI & Navigation
     implementation libs.appcompat
     implementation libs.material
     implementation libs.activity
@@ -41,14 +42,20 @@ dependencies {
     implementation libs.navigation.fragment
     implementation libs.navigation.ui
     implementation libs.glide
+
+    // Firebase (Versions managed via BoM in libs.versions.toml)
+    implementation platform(libs.firebase.bom)
+    implementation libs.firebase.analytics
+    implementation libs.firebase.auth
+    implementation libs.firebase.firestore
     implementation libs.firebase.messaging
+    implementation libs.firebase.storage
+
+    // Other libraries
+    implementation libs.identity.jvm
+
+    // Testing
     testImplementation libs.junit
     androidTestImplementation libs.ext.junit
     androidTestImplementation libs.espresso.core
-
-    implementation platform('com.google.firebase:firebase-bom:34.12.0')
-    implementation 'com.google.firebase:firebase-analytics'
-    implementation("com.google.firebase:firebase-messaging:24.0.0")
-    implementation("com.google.firebase:firebase-firestore")
-
 }
