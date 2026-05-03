@@ -10,7 +10,7 @@ import android.os.Build;
  */
 public class App extends Application {
 
-    public static final String CHANNEL_ID = "fcm_default_channel";
+    public static final String CHANNEL_ID = "fcm_pop_up_channel";
 
     @Override
     public void onCreate() {
@@ -25,7 +25,7 @@ public class App extends Application {
     private void createNotificationChannel() {
         CharSequence name = "General Notifications";
         String description = "Used for general app updates and news";
-        int importance = NotificationManager.IMPORTANCE_DEFAULT;
+        int importance = NotificationManager.IMPORTANCE_HIGH;
         NotificationChannel channel = new NotificationChannel(CHANNEL_ID, name, importance);
         channel.setDescription(description);
 

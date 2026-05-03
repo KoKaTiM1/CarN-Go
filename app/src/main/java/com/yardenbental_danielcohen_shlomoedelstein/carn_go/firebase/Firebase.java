@@ -1,46 +1,68 @@
 package com.yardenbental_danielcohen_shlomoedelstein.carn_go.firebase;
 
-import com.google.firebase.messaging.FirebaseMessagingService;
-import com.google.firebase.messaging.RemoteMessage;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.Context;
+import android.content.Intent;
 import android.util.Log;
 
-/**
- * Service to handle Firebase Cloud Messaging (FCM) events.
- * This service receives messages from FCM and handles registration token updates.
- */
+import androidx.annotation.NonNull;
+import androidx.core.app.NotificationCompat;
+
+import com.google.firebase.messaging.FirebaseMessagingService;
+import com.google.firebase.messaging.RemoteMessage;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.App;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.MainActivity;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.R;
+
 public class Firebase extends FirebaseMessagingService {
 
-    /**
-     * Called when a message is received from FCM.
-     *
-     * @param remoteMessage Object representing the message received from Firebase Cloud Messaging.
-     */
     @Override
-    public void onMessageReceived(RemoteMessage remoteMessage) {
-        Log.d("FCM", "From: " + remoteMessage.getFrom());
-        // Handle notification data or payload here if needed
+    public void onMessageReceived(@NonNull RemoteMessage remoteMessage) {
+        // 1. Get the message content
+        if (remoteMessage.getNotification() != null) {
+            String title = remoteMessage.getNotification().getTitle();
+            String body = remoteMessage.getNotification().getBody();
+            
+            // 2. Manually show it (this makes it pop up in-app)
+            sendNotification(title, body);
+        }
     }
 
-    /**
-     * Called when a new FCM registration token is generated.
-     * This occurs on the first app launch or if the token is refreshed by the system.
-     *
-     * @param token The new registration token.
-     */
+    private void sendNotification(String title, String messageBody) {
+        // Prepare the action when the notification is clicked
+        Intent intent = new Intent(this, MainActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent,
+                PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_IMMUTABLE);
+
+        // Build the notification
+        NotificationCompat.Builder notificationBuilder =
+                new NotificationCompat.Builder(this, App.CHANNEL_ID)
+                        .setSmallIcon(R.mipmap.ic_launcher)
+                        .setContentTitle(title)
+                        .setContentText(messageBody)
+                        .setAutoCancel(true)
+                        .setPriority(NotificationCompat.PRIORITY_HIGH) // Required for pop-up
+                        .setContentIntent(pendingIntent);
+
+        // Show the notification
+        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        if (notificationManager != null) {
+            notificationManager.notify((int) System.currentTimeMillis(), notificationBuilder.build());
+        }
+    }
+
     @Override
-    public void onNewToken(String token) {
-        Log.d("FCM", "Refreshed token: " + token);
-        // Update the token in Firestore so the server can send notifications to this specific device
+    public void onNewToken(@NonNull String token) {
+        Log.d("FCM", "Token: " + token);
         sendTokenToServer(token);
     }
 
     /**
      * Updates the user's token in the remote Firestore database.
-     *
-     * @param token The registration token to be saved.
      */
     public void sendTokenToServer(String token) {
-        // Use the FirestoreHelper to persist the token
         FirestoreHelper.updateUserToken(this, token);
     }
 }

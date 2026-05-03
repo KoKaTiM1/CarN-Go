@@ -27,7 +27,7 @@
         <!-- Set default notification channel. -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="fcm_default_channel" />
+            android:value="fcm_pop_up_channel" />
 
         <activity
             android:name=".MainActivity"
