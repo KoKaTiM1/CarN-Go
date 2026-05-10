@@ -192,37 +192,13 @@ public class BookingSummaryFragment extends Fragment {
         calUtc.set(Calendar.MILLISECOND, 0);
         long startOfTodayUtc = calUtc.getTimeInMillis();
 
-        // The absolute boundaries based on car's overall availability
+        // 1. SET ABSOLUTE BOUNDARIES (The Car's Availability)
+        // We want the user to see the full range the car is available,
+        // regardless of whether they are picking start or end.
         long minDate = Math.max(car.getAvailableFrom(), startOfTodayUtc);
         long maxDate = car.getAvailableTo();
 
-        // Refine boundaries based on existing selection and bookings to prevent overlaps
-        if (!isStart && selectedStartTimestamp != 0) {
-            // Picking END: Must be >= selected START
-            minDate = Math.max(minDate, selectedStartTimestamp);
-            // Must be before the next booking starts
-            for (Booking b : existingBookings) {
-                if (b.getStartTime() > selectedStartTimestamp) {
-                    maxDate = Math.min(maxDate, b.getStartTime());
-                    break;
-                }
-            }
-        } else if (isStart && selectedEndTimestamp != 0) {
-            // Picking START: Must be <= selected END
-            maxDate = Math.min(maxDate, selectedEndTimestamp);
-            // Must be after the previous booking ends
-            long latestPreviousEnd = car.getAvailableFrom();
-            for (Booking b : existingBookings) {
-                if (b.getEndTime() <= selectedEndTimestamp) {
-                    if (b.getEndTime() > latestPreviousEnd) {
-                        latestPreviousEnd = b.getEndTime();
-                    }
-                }
-            }
-            minDate = Math.max(minDate, latestPreviousEnd);
-        }
-
-        // Align boundaries to UTC midnight for the DatePicker validator
+        // 2. ALIGN VALIDATORS TO MIDNIGHT UTC
         calUtc.setTimeInMillis(minDate);
         calUtc.set(Calendar.HOUR_OF_DAY, 0);
         calUtc.set(Calendar.MINUTE, 0);
@@ -237,109 +213,85 @@ public class BookingSummaryFragment extends Fragment {
         calUtc.set(Calendar.MILLISECOND, 0);
         long validatorMax = calUtc.getTimeInMillis();
 
+        // 3. CONFIGURE CALENDAR CONSTRAINTS
         CalendarConstraints.Builder constraintsBuilder = new CalendarConstraints.Builder();
-        // Define the visible/scrollable range
-        constraintsBuilder.setStart(Math.max(car.getAvailableFrom(), startOfTodayUtc));
-        constraintsBuilder.setEnd(car.getAvailableTo());
+        constraintsBuilder.setStart(validatorMin);
+        constraintsBuilder.setEnd(validatorMax);
 
-        // Create a composite validator to grey out everything outside [validatorMin, validatorMax]
         List<CalendarConstraints.DateValidator> validators = new ArrayList<>();
         validators.add(DateValidatorPointForward.from(validatorMin));
-
-        // FIX: Removed "+ TimeUnit.DAYS.toMillis(1)".
-        // DateValidatorPointBackward.before(point) includes the day containing 'point' as the LAST selectable day.
         validators.add(DateValidatorPointBackward.before(validatorMax));
 
         constraintsBuilder.setValidator(CompositeDateValidator.allOf(validators));
 
-        // Initial selection (UTC millis)
-        long selection = isStart ? (selectedStartTimestamp != 0 ? selectedStartTimestamp : minDate)
-                : (selectedEndTimestamp != 0 ? selectedEndTimestamp : (selectedStartTimestamp != 0 ? selectedStartTimestamp + TimeUnit.HOURS.toMillis(1) : minDate + TimeUnit.HOURS.toMillis(1)));
+        // 4. SET INITIAL SELECTION
+        long currentSelection = isStart ? selectedStartTimestamp : selectedEndTimestamp;
+        if (currentSelection == 0) {
+            currentSelection = (isStart) ? minDate : Math.min(maxDate, minDate + TimeUnit.DAYS.toMillis(1));
+        }
 
-        // Ensure selection is valid within the calculated bounds
-        if (selection < validatorMin) selection = validatorMin;
-        if (selection > validatorMax) selection = validatorMax;
-
-        final long finalSelection = selection;
+        // Ensure selection is within bounds
+        if (currentSelection < validatorMin) currentSelection = validatorMin;
+        if (currentSelection > validatorMax) currentSelection = validatorMax;
 
         MaterialDatePicker<Long> datePicker = MaterialDatePicker.Builder.datePicker()
                 .setTitleText("Select " + (isStart ? "Start" : "End") + " Date")
-                .setSelection(finalSelection)
+                .setSelection(currentSelection)
                 .setCalendarConstraints(constraintsBuilder.build())
                 .build();
 
         datePicker.addOnPositiveButtonClickListener(selectedDate -> {
-            Calendar c = Calendar.getInstance();
-            long baseTimestamp = isStart ? selectedStartTimestamp : selectedEndTimestamp;
-            if (baseTimestamp == 0) {
-                baseTimestamp = finalSelection;
-            }
-            c.setTimeInMillis(baseTimestamp);
-
-            // Build a string of busy slots for this day to show the user
-            StringBuilder busySlots = new StringBuilder();
-            SimpleDateFormat timeSdf = new SimpleDateFormat("HH:mm", Locale.getDefault());
-
-            Calendar startOfDay = Calendar.getInstance();
-            startOfDay.setTimeInMillis(selectedDate);
-            startOfDay.set(Calendar.HOUR_OF_DAY, 0);
-            long dayStart = startOfDay.getTimeInMillis();
-            long dayEnd = dayStart + TimeUnit.DAYS.toMillis(1);
-
-            for (Booking b : existingBookings) {
-                if (b.getEndTime() > dayStart && b.getStartTime() < dayEnd) {
-                    if (busySlots.length() > 0) busySlots.append(", ");
-                    busySlots.append(timeSdf.format(new Date(b.getStartTime())))
-                            .append("-")
-                            .append(timeSdf.format(new Date(b.getEndTime())));
-                }
-            }
-
-            String title = "Select " + (isStart ? "Start" : "End") + " Time";
-            if (busySlots.length() > 0) {
-                title += " (Busy: " + busySlots.toString() + ")";
-            }
-
-            MaterialTimePicker timePicker = new MaterialTimePicker.Builder()
-                    .setTimeFormat(TimeFormat.CLOCK_24H)
-                    .setHour(c.get(Calendar.HOUR_OF_DAY))
-                    .setMinute(c.get(Calendar.MINUTE))
-                    .setTitleText(title)
-                    .build();
-
-            timePicker.addOnPositiveButtonClickListener(v -> {
-                Calendar utcCal = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
-                utcCal.setTimeInMillis(selectedDate);
-
-                Calendar localCal = Calendar.getInstance();
-                localCal.set(utcCal.get(Calendar.YEAR), utcCal.get(Calendar.MONTH), utcCal.get(Calendar.DAY_OF_MONTH),
-                        timePicker.getHour(), timePicker.getMinute(), 0);
-                localCal.set(Calendar.MILLISECOND, 0);
-
-                long newTimestamp = localCal.getTimeInMillis();
-
-                // If picking start time, ensure it's not in the past
-                if (isStart && newTimestamp < now) {
-                    Toast.makeText(getContext(), "Cannot select a time in the past", Toast.LENGTH_SHORT).show();
-                    return;
-                }
-
-                if (isStart) {
-                    selectedStartTimestamp = newTimestamp;
-                    if (selectedEndTimestamp != 0 && selectedEndTimestamp <= selectedStartTimestamp) {
-                        selectedEndTimestamp = selectedStartTimestamp + TimeUnit.HOURS.toMillis(1);
-                    }
-                } else {
-                    selectedEndTimestamp = newTimestamp;
-                    if (selectedStartTimestamp != 0 && selectedStartTimestamp >= selectedEndTimestamp) {
-                        selectedStartTimestamp = selectedEndTimestamp - TimeUnit.HOURS.toMillis(1);
-                    }
-                }
-                updateBookingSummary(tvDisplay, tvTotal, tvTotalLabel, car);
-            });
-            timePicker.show(getParentFragmentManager(), "TIME_PICKER");
+            // Proceed to Time Picker
+            showTimePicker(selectedDate, isStart, tvDisplay, tvTotal, tvTotalLabel, car, now);
         });
         datePicker.show(getParentFragmentManager(), "DATE_PICKER");
+    }
+
+    // Extracted Time Picker logic for clarity
+    private void showTimePicker(long selectedDate, boolean isStart, TextView tvDisplay, TextView tvTotal, TextView tvTotalLabel, Car car, long now) {
+        Calendar c = Calendar.getInstance();
+        long baseTimestamp = isStart ? selectedStartTimestamp : selectedEndTimestamp;
+        if (baseTimestamp == 0) baseTimestamp = selectedDate;
+        c.setTimeInMillis(baseTimestamp);
+
+        MaterialTimePicker timePicker = new MaterialTimePicker.Builder()
+                .setTimeFormat(TimeFormat.CLOCK_24H)
+                .setHour(c.get(Calendar.HOUR_OF_DAY))
+                .setMinute(c.get(Calendar.MINUTE))
+                .setTitleText("Select " + (isStart ? "Start" : "End") + " Time")
+                .build();
+
+        timePicker.addOnPositiveButtonClickListener(v -> {
+            Calendar utcCal = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+            utcCal.setTimeInMillis(selectedDate);
+
+            Calendar localCal = Calendar.getInstance();
+            localCal.set(utcCal.get(Calendar.YEAR), utcCal.get(Calendar.MONTH), utcCal.get(Calendar.DAY_OF_MONTH),
+                    timePicker.getHour(), timePicker.getMinute(), 0);
+            localCal.set(Calendar.MILLISECOND, 0);
+
+            long newTimestamp = localCal.getTimeInMillis();
+
+            if (isStart) {
+                if (newTimestamp < now) {
+                    Toast.makeText(getContext(), "Start time cannot be in the past", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                selectedStartTimestamp = newTimestamp;
+                // Auto-adjust end time if it's now before the start
+                if (selectedEndTimestamp != 0 && selectedEndTimestamp <= selectedStartTimestamp) {
+                    selectedEndTimestamp = selectedStartTimestamp + TimeUnit.HOURS.toMillis(1);
+                }
+            } else {
+                if (selectedStartTimestamp != 0 && newTimestamp <= selectedStartTimestamp) {
+                    Toast.makeText(getContext(), "End time must be after start time", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                selectedEndTimestamp = newTimestamp;
+            }
+            updateBookingSummary(tvDisplay, tvTotal, tvTotalLabel, car);
+        });
+        timePicker.show(getParentFragmentManager(), "TIME_PICKER");
     }
 
     private void updateBookingSummary(TextView tvDisplay, TextView tvTotal, TextView tvTotalLabel, Car car) {
