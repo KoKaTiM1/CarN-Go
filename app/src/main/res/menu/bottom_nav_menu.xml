@@ -9,7 +9,7 @@
         android:icon="@android:drawable/ic_menu_directions"
         android:title="My Cars" />
     <item
-        android:id="@+id/bookingSummaryFragment"
+        android:id="@+id/myBookingsFragment"
         android:icon="@android:drawable/ic_menu_agenda"
         android:title="Bookings" />
 </menu>

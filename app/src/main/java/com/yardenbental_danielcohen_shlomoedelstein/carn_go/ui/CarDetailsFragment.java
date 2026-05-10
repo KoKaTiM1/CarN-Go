@@ -10,6 +10,7 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.widget.Toolbar;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.Navigation;
 
@@ -94,10 +95,13 @@ public class CarDetailsFragment extends Fragment {
             Navigation.findNavController(view).navigate(R.id.action_carDetailsFragment_to_bookingSummaryFragment, bundle);
         });
 
-        // Handle back navigation from the toolbar
-        view.findViewById(R.id.toolbar).setOnClickListener(v -> {
-            Navigation.findNavController(view).navigateUp();
-        });
+        // Handle back navigation from the toolbar navigation icon
+        Toolbar toolbar = view.findViewById(R.id.toolbar);
+        if (toolbar != null) {
+            toolbar.setNavigationOnClickListener(v -> {
+                Navigation.findNavController(view).navigateUp();
+            });
+        }
 
         return view;
     }
