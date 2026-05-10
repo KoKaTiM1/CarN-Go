@@ -1,6 +1,7 @@
 package com.yardenbental_danielcohen_shlomoedelstein.carn_go.ui;
 
 import android.os.Bundle;
+import android.util.Base64;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -36,12 +37,24 @@ public class CarDetailsFragment extends Fragment {
             TextView tvSeats = view.findViewById(R.id.tvDetailSeats);
             TextView tvTransmission = view.findViewById(R.id.tvDetailTransmission);
             TextView tvTag = view.findViewById(R.id.tvDetailTag);
+            TextView tvFuelType = view.findViewById(R.id.tvDetailFuelType);
+            View fuelTypeDivider = view.findViewById(R.id.tvDetailFuelTypeDivider);
 
             // Populate the UI with car details
             tvName.setText(car.getName());
             tvRating.setText(String.valueOf(car.getRating()));
             tvSeats.setText(car.getSeats() + " Seats");
             tvTransmission.setText(car.getTransmission());
+
+            // Show or hide Fuel Type based on availability
+            if (car.getFuelType() != null && !car.getFuelType().isEmpty()) {
+                tvFuelType.setText(car.getFuelType());
+                tvFuelType.setVisibility(View.VISIBLE);
+                fuelTypeDivider.setVisibility(View.VISIBLE);
+            } else {
+                tvFuelType.setVisibility(View.GONE);
+                fuelTypeDivider.setVisibility(View.GONE);
+            }
             
             // Show or hide the tag based on availability
             if (car.getTag() != null && !car.getTag().isEmpty()) {
@@ -51,8 +64,27 @@ public class CarDetailsFragment extends Fragment {
                 tvTag.setVisibility(View.GONE);
             }
 
-            // Load the car image using Glide
-            Glide.with(this).load(car.getImageUrl()).into(ivCarImage);
+            // Load the car image using Glide (handles both URL and Base64)
+            String imageUrl = car.getImageUrl();
+            if (imageUrl != null && !imageUrl.isEmpty()) {
+                if (imageUrl.startsWith("http")) {
+                    // It's a URL
+                    Glide.with(this)
+                            .load(imageUrl)
+                            .into(ivCarImage);
+                } else {
+                    // It's likely Base64 data
+                    try {
+                        byte[] decodedString = Base64.decode(imageUrl, Base64.DEFAULT);
+                        Glide.with(this)
+                                .asBitmap()
+                                .load(decodedString)
+                                .into(ivCarImage);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
         }
 
         // Navigate to booking summary when "Book Now" is clicked

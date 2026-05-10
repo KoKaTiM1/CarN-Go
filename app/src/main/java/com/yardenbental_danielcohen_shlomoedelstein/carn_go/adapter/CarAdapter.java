@@ -1,5 +1,6 @@
 package com.yardenbental_danielcohen_shlomoedelstein.carn_go.adapter;
 
+import android.util.Base64;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -15,6 +16,8 @@ import com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Car;
 
 import java.util.List;
 
+
+
 /**
  * Adapter for displaying a list of Car objects in a RecyclerView.
  */
@@ -28,11 +31,20 @@ public class CarAdapter extends RecyclerView.Adapter<CarAdapter.CarViewHolder> {
      */
     public interface OnCarClickListener {
         void onCarClick(Car car);
+        default void onEditClick(Car car) {}
+        default void onDeleteClick(Car car) {}
     }
+
+    private boolean showEditDeleteOptions = false;
 
     public CarAdapter(List<Car> carList, OnCarClickListener listener) {
         this.carList = carList;
         this.listener = listener;
+    }
+
+    public void setShowEditDeleteOptions(boolean show) {
+        this.showEditDeleteOptions = show;
+        notifyDataSetChanged();
     }
 
     @NonNull
@@ -46,17 +58,17 @@ public class CarAdapter extends RecyclerView.Adapter<CarAdapter.CarViewHolder> {
     @Override
     public void onBindViewHolder(@NonNull CarViewHolder holder, int position) {
         Car car = carList.get(position);
-        
+
         // Bind car data to UI elements
         holder.tvCarName.setText(car.getName());
         holder.tvLocation.setText(car.getLocation());
-        
+
         holder.tvPrice.setText(holder.itemView.getContext().getString(R.string.price_per_hour, (int)car.getPricePerHour()));
         holder.tvRating.setText(String.valueOf(car.getRating()));
         holder.tvTransmission.setText(car.getTransmission());
         holder.tvSeats.setText(holder.itemView.getContext().getString(R.string.seats_count, car.getSeats()));
         holder.tvTag.setText(car.getTag());
-        
+
         // Show or hide the tag based on whether it's available
         if (car.getTag() == null || car.getTag().isEmpty()) {
             holder.tagBackground.setVisibility(View.GONE);
@@ -66,14 +78,42 @@ public class CarAdapter extends RecyclerView.Adapter<CarAdapter.CarViewHolder> {
             holder.tvTag.setVisibility(View.VISIBLE);
         }
 
-        // Load the car image using Glide
-        Glide.with(holder.itemView.getContext())
-                .load(car.getImageUrl())
-                .into(holder.ivCarImage);
+        // Load the car image using Glide (handles both URL and Base64)
+        String imagePath = car.getImageUrl();
+        if (imagePath != null && !imagePath.isEmpty()) {
+            if (imagePath.startsWith("http")) {
+                // It's a URL
+                Glide.with(holder.itemView.getContext())
+                        .load(imagePath)
+                        .into(holder.ivCarImage);
+            } else {
+                // It's likely Base64 data
+                try {
+                    byte[] decodedString = Base64.decode(imagePath, Base64.DEFAULT);
+                    Glide.with(holder.itemView.getContext())
+                            .asBitmap()
+                            .load(decodedString)
+                            .centerCrop() // Optimization: crop before rendering
+                            .into(holder.ivCarImage);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }
 
         // Set click listeners for the item and the details button
         holder.itemView.setOnClickListener(v -> listener.onCarClick(car));
         holder.btnDetails.setOnClickListener(v -> listener.onCarClick(car));
+
+        if (showEditDeleteOptions) {
+            holder.btnDetails.setVisibility(View.GONE);
+            holder.layoutEditDelete.setVisibility(View.VISIBLE);
+            holder.btnEdit.setOnClickListener(v -> listener.onEditClick(car));
+            holder.btnDelete.setOnClickListener(v -> listener.onDeleteClick(car));
+        } else {
+            holder.btnDetails.setVisibility(View.VISIBLE);
+            holder.layoutEditDelete.setVisibility(View.GONE);
+        }
     }
 
     @Override
@@ -87,7 +127,7 @@ public class CarAdapter extends RecyclerView.Adapter<CarAdapter.CarViewHolder> {
     static class CarViewHolder extends RecyclerView.ViewHolder {
         ImageView ivCarImage;
         TextView tvCarName, tvLocation, tvPrice, tvRating, tvTransmission, tvSeats, tvTag;
-        View tagBackground, btnDetails;
+        View tagBackground, btnDetails, layoutEditDelete, btnEdit, btnDelete;
 
         public CarViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -101,6 +141,9 @@ public class CarAdapter extends RecyclerView.Adapter<CarAdapter.CarViewHolder> {
             tvTag = itemView.findViewById(R.id.tvTag);
             tagBackground = itemView.findViewById(R.id.tagBackground);
             btnDetails = itemView.findViewById(R.id.btnDetails);
+            layoutEditDelete = itemView.findViewById(R.id.layoutEditDelete);
+            btnEdit = itemView.findViewById(R.id.btnEdit);
+            btnDelete = itemView.findViewById(R.id.btnDelete);
         }
     }
 }
