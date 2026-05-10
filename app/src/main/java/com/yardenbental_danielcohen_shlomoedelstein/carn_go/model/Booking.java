@@ -8,19 +8,21 @@ public class Booking implements Serializable {
     private String userId;
     private String carName;
     private String carImageUrl;
-    private int hours;
+    private long startTime;
+    private long endTime;
     private double totalCost;
     private long timestamp;
 
     public Booking() {}
 
-    public Booking(String id, String carId, String userId, String carName, String carImageUrl, int hours, double totalCost, long timestamp) {
+    public Booking(String id, String carId, String userId, String carName, String carImageUrl, long startTime, long endTime, double totalCost, long timestamp) {
         this.id = id;
         this.carId = carId;
         this.userId = userId;
         this.carName = carName;
         this.carImageUrl = carImageUrl;
-        this.hours = hours;
+        this.startTime = startTime;
+        this.endTime = endTime;
         this.totalCost = totalCost;
         this.timestamp = timestamp;
     }
@@ -30,7 +32,8 @@ public class Booking implements Serializable {
     public String getUserId() { return userId; }
     public String getCarName() { return carName; }
     public String getCarImageUrl() { return carImageUrl; }
-    public int getHours() { return hours; }
+    public long getStartTime() { return startTime; }
+    public long getEndTime() { return endTime; }
     public double getTotalCost() { return totalCost; }
     public long getTimestamp() { return timestamp; }
 }

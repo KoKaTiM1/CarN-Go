@@ -64,6 +64,15 @@
                     android:textColor="@color/primary"
                     android:textStyle="bold" />
 
+                <TextView
+                    android:id="@+id/tvCarAvailability"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Available: Jul 20, 08:00 - Jul 22, 10:00"
+                    android:textColor="@color/on_surface_variant"
+                    android:textSize="12sp" />
+
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
@@ -73,24 +82,42 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Select Duration (Hours)"
+                    android:text="Select Booking Period"
                     android:textColor="@color/on_surface"
                     android:textSize="14sp"
                     android:textStyle="bold" />
 
-                <com.google.android.material.textfield.TextInputLayout
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    app:boxBackgroundMode="outline">
-
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/etBookingHours"
-                        android:layout_width="match_parent"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="8dp">
+                    <Button
+                        android:id="@+id/btnBookPickStart"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:inputType="number"
-                        android:text="1" />
-                </com.google.android.material.textfield.TextInputLayout>
+                        android:layout_weight="1"
+                        android:text="Start Date/Time"
+                        android:layout_marginEnd="4dp"/>
+                    <Button
+                        android:id="@+id/btnBookPickEnd"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="End Date/Time"
+                        android:layout_marginStart="4dp"/>
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/tvSelectedBookingPeriod"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="No period selected"
+                    android:textSize="14sp"
+                    android:textColor="@color/primary"/>
 
                 <View
                     android:layout_width="match_parent"

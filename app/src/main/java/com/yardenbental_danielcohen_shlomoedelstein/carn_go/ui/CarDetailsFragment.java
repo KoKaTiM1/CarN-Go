@@ -8,6 +8,10 @@ import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.widget.Toolbar;
@@ -15,8 +19,15 @@ import androidx.fragment.app.Fragment;
 import androidx.navigation.Navigation;
 
 import com.bumptech.glide.Glide;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.R;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Booking;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Car;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * Fragment that displays detailed information about a specific car.
@@ -40,12 +51,21 @@ public class CarDetailsFragment extends Fragment {
             TextView tvTag = view.findViewById(R.id.tvDetailTag);
             TextView tvFuelType = view.findViewById(R.id.tvDetailFuelType);
             View fuelTypeDivider = view.findViewById(R.id.tvDetailFuelTypeDivider);
+            TextView tvAvailableFrom = view.findViewById(R.id.tvDetailAvailableFrom);
+            TextView tvAvailableTo = view.findViewById(R.id.tvDetailAvailableTo);
+            TextView tvBusySlotsLabel = view.findViewById(R.id.tvBusySlotsLabel);
+            TextView tvBusySlots = view.findViewById(R.id.tvBusySlots);
 
             // Populate the UI with car details
             tvName.setText(car.getName());
             tvRating.setText(String.valueOf(car.getRating()));
             tvSeats.setText(car.getSeats() + " Seats");
             tvTransmission.setText(car.getTransmission());
+
+            // Format and show availability
+            SimpleDateFormat sdf = new SimpleDateFormat("MMM d, yyyy HH:mm", Locale.getDefault());
+            tvAvailableFrom.setText("From: " + sdf.format(new Date(car.getAvailableFrom())));
+            tvAvailableTo.setText("To: " + sdf.format(new Date(car.getAvailableTo())));
 
             // Show or hide Fuel Type based on availability
             if (car.getFuelType() != null && !car.getFuelType().isEmpty()) {
@@ -64,6 +84,9 @@ public class CarDetailsFragment extends Fragment {
             } else {
                 tvTag.setVisibility(View.GONE);
             }
+
+            // Fetch and show busy slots
+            fetchAndShowBusySlots(car.getId(), tvBusySlotsLabel, tvBusySlots);
 
             // Load the car image using Glide (handles both URL and Base64)
             String imageUrl = car.getImageUrl();
@@ -104,5 +127,40 @@ public class CarDetailsFragment extends Fragment {
         }
 
         return view;
+    }
+
+    private void fetchAndShowBusySlots(String carId, TextView label, TextView content) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        db.collection("bookings")
+                .whereEqualTo("carId", carId)
+                .whereGreaterThan("endTime", System.currentTimeMillis())
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    List<Booking> bookings = new ArrayList<>();
+                    for (QueryDocumentSnapshot doc : queryDocumentSnapshots) {
+                        bookings.add(doc.toObject(Booking.class));
+                    }
+
+                    if (bookings.isEmpty()) {
+                        label.setVisibility(View.GONE);
+                        content.setVisibility(View.GONE);
+                        return;
+                    }
+
+                    Collections.sort(bookings, (b1, b2) -> Long.compare(b1.getStartTime(), b2.getStartTime()));
+
+                    StringBuilder sb = new StringBuilder();
+                    SimpleDateFormat sdf = new SimpleDateFormat("MMM d, HH:mm", Locale.getDefault());
+                    for (Booking b : bookings) {
+                        if (sb.length() > 0) sb.append("\n");
+                        sb.append(sdf.format(new Date(b.getStartTime())))
+                          .append(" - ")
+                          .append(sdf.format(new Date(b.getEndTime())));
+                    }
+
+                    label.setVisibility(View.VISIBLE);
+                    content.setVisibility(View.VISIBLE);
+                    content.setText(sb.toString());
+                });
     }
 }
