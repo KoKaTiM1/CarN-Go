@@ -26,6 +26,7 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
     public interface OnBookingActionListener {
         void onApprove(Booking booking);
         void onReject(Booking booking);
+        void onFinish(Booking booking);
     }
 
     private List<Booking> bookingList;
@@ -65,6 +66,14 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
         // Action buttons visibility: Only show if I am the owner and it is PENDING
         if (currentUserId != null && currentUserId.equals(booking.getOwnerId()) && "PENDING".equals(status)) {
             holder.layoutActions.setVisibility(View.VISIBLE);
+            holder.btnApprove.setVisibility(View.VISIBLE);
+            holder.btnReject.setVisibility(View.VISIBLE);
+            holder.btnFinish.setVisibility(View.GONE);
+        } else if (currentUserId != null && currentUserId.equals(booking.getUserId()) && "APPROVED".equals(status)) {
+            holder.layoutActions.setVisibility(View.VISIBLE);
+            holder.btnApprove.setVisibility(View.GONE);
+            holder.btnReject.setVisibility(View.GONE);
+            holder.btnFinish.setVisibility(View.VISIBLE);
         } else {
             holder.layoutActions.setVisibility(View.GONE);
         }
@@ -75,6 +84,10 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
 
         holder.btnReject.setOnClickListener(v -> {
             if (listener != null) listener.onReject(booking);
+        });
+
+        holder.btnFinish.setOnClickListener(v -> {
+            if (listener != null) listener.onFinish(booking);
         });
         
         long durationMillis = booking.getEndTime() - booking.getStartTime();
@@ -130,7 +143,7 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
         ImageView ivCarImage;
         TextView tvCarName, tvDuration, tvDate, tvTotal, tvStatus;
         View layoutActions;
-        Button btnApprove, btnReject;
+        Button btnApprove, btnReject, btnFinish;
 
         public BookingViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -143,6 +156,7 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
             layoutActions = itemView.findViewById(R.id.layoutBookingActions);
             btnApprove = itemView.findViewById(R.id.btnApproveBooking);
             btnReject = itemView.findViewById(R.id.btnRejectBooking);
+            btnFinish = itemView.findViewById(R.id.btnFinishRental);
         }
     }
 }

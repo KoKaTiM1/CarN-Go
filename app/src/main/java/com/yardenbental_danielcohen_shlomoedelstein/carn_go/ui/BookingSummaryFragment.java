@@ -466,7 +466,7 @@ public class BookingSummaryFragment extends Fragment {
                 String token = documentSnapshot.getString("token");
                 if (token != null) {
                     android.util.Log.d("BookingSummaryFragment", "Owner FCM Token found: " + token);
-                    
+
                     // Simulation logic: Only show the "Owner Alert" if the current user IS the owner
                     if (currentUserId != null && currentUserId.equals(ownerId)) {
                         showLocalNotification(appContext, "[TEST] Alert for Owner", "Your car " + car.getName() + " has a new booking request!");
@@ -488,12 +488,12 @@ public class BookingSummaryFragment extends Fragment {
             android.util.Log.e("BookingSummaryFragment", "Cannot show notification: context is null");
             return;
         }
-        
+
         android.util.Log.d("BookingSummaryFragment", "Attempting to show notification: " + title);
 
-        NotificationManager notificationManager = (NotificationManager) 
+        NotificationManager notificationManager = (NotificationManager)
                 context.getSystemService(Context.NOTIFICATION_SERVICE);
-        
+
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, com.yardenbental_danielcohen_shlomoedelstein.carn_go.App.CHANNEL_ID)
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .setContentTitle(title)

@@ -45,7 +45,21 @@
         android:id="@+id/myBookingsFragment"
         android:name="com.yardenbental_danielcohen_shlomoedelstein.carn_go.ui.MyBookingsFragment"
         android:label="My Bookings"
-        tools:layout="@layout/fragment_my_bookings" />
+        tools:layout="@layout/fragment_my_bookings">
+        <action
+            android:id="@+id/action_myBookingsFragment_to_rentalCompletionFragment"
+            app:destination="@id/rentalCompletionFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/rentalCompletionFragment"
+        android:name="com.yardenbental_danielcohen_shlomoedelstein.carn_go.ui.RentalCompletionFragment"
+        android:label="Finish Rental"
+        tools:layout="@layout/fragment_rental_completion">
+        <argument
+            android:name="booking"
+            app:argType="com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Booking" />
+    </fragment>
 
     <fragment
         android:id="@+id/myCarsFragment"

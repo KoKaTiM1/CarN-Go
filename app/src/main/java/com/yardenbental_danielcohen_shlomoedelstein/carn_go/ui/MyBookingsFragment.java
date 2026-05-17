@@ -13,6 +13,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 import androidx.fragment.app.Fragment;
+import androidx.navigation.Navigation;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -116,6 +117,16 @@ public class MyBookingsFragment extends Fragment implements BookingAdapter.OnBoo
         updateBookingStatus(booking, "REJECTED");
     }
 
+    @Override
+    public void onFinish(Booking booking) {
+        Bundle bundle = new Bundle();
+        bundle.putSerializable("booking", booking);
+        if (getView() != null) {
+            Navigation.findNavController(getView())
+                    .navigate(R.id.action_myBookingsFragment_to_rentalCompletionFragment, bundle);
+        }
+    }
+
     private void updateBookingStatus(Booking booking, String newStatus) {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
         db.collection("bookings").document(booking.getId())
@@ -156,9 +167,9 @@ public class MyBookingsFragment extends Fragment implements BookingAdapter.OnBoo
     }
 
     private void showLocalNotification(Context context, String title, String body) {
-        NotificationManager notificationManager = (NotificationManager) 
+        NotificationManager notificationManager = (NotificationManager)
                 context.getSystemService(Context.NOTIFICATION_SERVICE);
-        
+
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, com.yardenbental_danielcohen_shlomoedelstein.carn_go.App.CHANNEL_ID)
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .setContentTitle(title)

@@ -41,6 +41,7 @@ dependencies {
     implementation libs.constraintlayout
     implementation libs.navigation.fragment
     implementation libs.navigation.ui
+    implementation libs.swiperefreshlayout
     implementation libs.glide
 
     // Firebase (Versions managed via BoM in libs.versions.toml)

@@ -13,7 +13,8 @@ public class Booking implements Serializable {
     private long endTime;
     private double totalCost;
     private long timestamp;
-    private String status; // PENDING, APPROVED, REJECTED
+    private String status; // PENDING, APPROVED, REJECTED, COMPLETED
+    private String endPhotoUrl;
 
     public Booking() {}
 
@@ -63,4 +64,7 @@ public class Booking implements Serializable {
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+
+    public String getEndPhotoUrl() { return endPhotoUrl; }
+    public void setEndPhotoUrl(String endPhotoUrl) { this.endPhotoUrl = endPhotoUrl; }
 }
