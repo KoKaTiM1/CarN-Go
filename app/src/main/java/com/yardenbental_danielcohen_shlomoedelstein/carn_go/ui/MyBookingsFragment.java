@@ -125,25 +125,31 @@ public class MyBookingsFragment extends Fragment implements BookingAdapter.OnBoo
                     booking.setStatus(newStatus);
                     adapter.notifyDataSetChanged();
                     
-                    if ("APPROVED".equals(newStatus)) {
-                        notifyRenter(booking);
-                    }
+                    notifyRenter(booking, newStatus);
                 })
                 .addOnFailureListener(e -> Toast.makeText(getContext(), "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show());
     }
 
-    private void notifyRenter(Booking booking) {
+    private void notifyRenter(Booking booking, String status) {
         String renterId = booking.getUserId();
+        String currentUserId = FirestoreHelper.getCurrentUserId(getContext());
         Context context = getContext();
         if (context == null) return;
         Context appContext = context.getApplicationContext();
+
+        String title = status.equals("APPROVED") ? "[TEST] Alert for Renter: Approved" : "[TEST] Alert for Renter: Rejected";
+        String message = "Your booking for " + booking.getCarName() + " has been " + status.toLowerCase() + " by the owner.";
 
         FirestoreHelper.getUserToken(renterId).addOnSuccessListener(documentSnapshot -> {
             if (documentSnapshot.exists()) {
                 String token = documentSnapshot.getString("token");
                 if (token != null) {
-                    showLocalNotification(appContext, "Booking Approved!", 
-                        "Your booking for " + booking.getCarName() + " has been approved by the owner.");
+                    // Only show alert if I am the Renter (for single-device testing)
+                    if (currentUserId != null && currentUserId.equals(renterId)) {
+                        showLocalNotification(appContext, title, message);
+                    } else {
+                        android.util.Log.d("MyBookingsFragment", "Simulation: Notification would be sent to Renter ID: " + renterId);
+                    }
                 }
             }
         });

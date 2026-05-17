@@ -136,7 +136,10 @@ public class BookingSummaryFragment extends Fragment {
                     existingBookings.clear();
                     for (QueryDocumentSnapshot doc : queryDocumentSnapshots) {
                         Booking b = doc.toObject(Booking.class);
-                        existingBookings.add(b);
+                        // Ignore rejected bookings when calculating available slots
+                        if (!"REJECTED".equals(b.getStatus())) {
+                            existingBookings.add(b);
+                        }
                     }
                     
                     // Sort bookings by start time (though Firestore might have helped if we had multiple orderBy)
@@ -153,7 +156,10 @@ public class BookingSummaryFragment extends Fragment {
                             .addOnSuccessListener(snapshots -> {
                                 existingBookings.clear();
                                 for (QueryDocumentSnapshot doc : snapshots) {
-                                    existingBookings.add(doc.toObject(Booking.class));
+                                    Booking b = doc.toObject(Booking.class);
+                                    if (!"REJECTED".equals(b.getStatus())) {
+                                        existingBookings.add(b);
+                                    }
                                 }
                                 Collections.sort(existingBookings, (b1, b2) -> Long.compare(b1.getStartTime(), b2.getStartTime()));
                                 suggestFirstAvailableSlot(car, tvDisplay, tvTotal, tvTotalLabel);
@@ -344,6 +350,10 @@ public class BookingSummaryFragment extends Fragment {
                 .addOnSuccessListener(queryDocumentSnapshots -> {
                     boolean hasOverlap = false;
                     for (com.google.firebase.firestore.QueryDocumentSnapshot doc : queryDocumentSnapshots) {
+                        String status = doc.getString("status");
+                        // Only REJECTED bookings are ignored. PENDING and APPROVED still block the time.
+                        if ("REJECTED".equals(status)) continue;
+
                         Long existingStart = doc.getLong("startTime");
                         if (existingStart != null) {
                             if (selectedEndTimestamp > existingStart) {
@@ -368,6 +378,9 @@ public class BookingSummaryFragment extends Fragment {
                             .addOnSuccessListener(snapshots -> {
                                 boolean hasOverlap = false;
                                 for (com.google.firebase.firestore.QueryDocumentSnapshot doc : snapshots) {
+                                    String status = doc.getString("status");
+                                    if ("REJECTED".equals(status)) continue;
+
                                     Long existingStart = doc.getLong("startTime");
                                     Long existingEnd = doc.getLong("endTime");
                                     if (existingStart != null && existingEnd != null) {
@@ -442,6 +455,9 @@ public class BookingSummaryFragment extends Fragment {
         String ownerId = car.getOwnerId();
         if (ownerId == null || ownerId.isEmpty()) return;
 
+        // Get current user ID to see if we should show the local simulation
+        String currentUserId = FirestoreHelper.getCurrentUserId(getContext());
+
         // Capture application context to avoid null context when fragment is detached
         Context appContext = requireContext().getApplicationContext();
 
@@ -451,8 +467,13 @@ public class BookingSummaryFragment extends Fragment {
                 if (token != null) {
                     android.util.Log.d("BookingSummaryFragment", "Owner FCM Token found: " + token);
                     
-                    // For testing: Show notification on this device
-                    showLocalNotification(appContext, "New Booking!", "Your car " + car.getName() + " has been booked!");
+                    // Simulation logic: Only show the "Owner Alert" if the current user IS the owner
+                    if (currentUserId != null && currentUserId.equals(ownerId)) {
+                        showLocalNotification(appContext, "[TEST] Alert for Owner", "Your car " + car.getName() + " has a new booking request!");
+                    } else {
+                        // In a real app, FCM would send this to the other user's device.
+                        android.util.Log.d("BookingSummaryFragment", "Simulation: Notification would be sent to Owner ID: " + ownerId);
+                    }
                 }
             } else {
                 android.util.Log.w("BookingSummaryFragment", "No user document found for ownerId: " + ownerId);

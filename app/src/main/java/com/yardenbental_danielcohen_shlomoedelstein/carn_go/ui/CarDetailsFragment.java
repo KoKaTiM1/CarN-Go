@@ -142,7 +142,11 @@ public class CarDetailsFragment extends Fragment {
                 .addOnSuccessListener(queryDocumentSnapshots -> {
                     List<Booking> bookings = new ArrayList<>();
                     for (QueryDocumentSnapshot doc : queryDocumentSnapshots) {
-                        bookings.add(doc.toObject(Booking.class));
+                        Booking b = doc.toObject(Booking.class);
+                        // Ignore rejected bookings in the "Busy Slots" list
+                        if (!"REJECTED".equals(b.getStatus())) {
+                            bookings.add(b);
+                        }
                     }
 
                     if (bookings.isEmpty()) {
