@@ -125,6 +125,23 @@
                     android:layout_height="wrap_content"
                     android:text="Automatic"
                     android:textColor="@color/on_surface_variant" />
+
+                <TextView
+                    android:id="@+id/tvDetailFuelTypeDivider"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="8dp"
+                    android:text="•"
+                    android:textColor="@color/on_surface_variant"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/tvDetailFuelType"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Gas"
+                    android:textColor="@color/on_surface_variant"
+                    android:visibility="gone" />
             </LinearLayout>
 
             <TextView

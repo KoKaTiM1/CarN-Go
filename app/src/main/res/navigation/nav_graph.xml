@@ -36,12 +36,25 @@
         <argument
             android:name="car"
             app:argType="com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Car" />
+        <action
+            android:id="@+id/action_bookingSummaryFragment_to_myBookingsFragment"
+            app:destination="@id/myBookingsFragment" />
     </fragment>
+
+    <fragment
+        android:id="@+id/myBookingsFragment"
+        android:name="com.yardenbental_danielcohen_shlomoedelstein.carn_go.ui.MyBookingsFragment"
+        android:label="My Bookings"
+        tools:layout="@layout/fragment_my_bookings" />
 
     <fragment
         android:id="@+id/myCarsFragment"
         android:name="com.yardenbental_danielcohen_shlomoedelstein.carn_go.ui.MyCarsFragment"
         android:label="My Cars"
-        tools:layout="@layout/fragment_my_cars" />
+        tools:layout="@layout/fragment_my_cars">
+        <action
+            android:id="@+id/action_myCarsFragment_to_carDetailsFragment"
+            app:destination="@id/carDetailsFragment" />
+    </fragment>
 
 </navigation>
