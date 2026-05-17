@@ -17,6 +17,7 @@ import com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Booking;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.Locale;
 
 public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingViewHolder> {
@@ -39,11 +40,20 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
         Booking booking = bookingList.get(position);
 
         holder.tvCarName.setText(booking.getCarName());
-        holder.tvDuration.setText("Duration: " + booking.getHours() + (booking.getHours() == 1 ? " hour" : " hours"));
+        
+        long durationMillis = booking.getEndTime() - booking.getStartTime();
+        long hours = TimeUnit.MILLISECONDS.toHours(durationMillis);
+        if (durationMillis % TimeUnit.HOURS.toMillis(1) > 0) {
+            hours++;
+        }
+        
+        holder.tvDuration.setText("Duration: " + hours + (hours == 1 ? " hour" : " hours"));
         holder.tvTotal.setText(String.format(Locale.getDefault(), "$%.2f", booking.getTotalCost()));
 
-        SimpleDateFormat sdf = new SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault());
-        holder.tvDate.setText(sdf.format(new Date(booking.getTimestamp())));
+        SimpleDateFormat sdf = new SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault());
+        String startStr = sdf.format(new Date(booking.getStartTime()));
+        String endStr = sdf.format(new Date(booking.getEndTime()));
+        holder.tvDate.setText(startStr + " - " + endStr);
 
         String imagePath = booking.getCarImageUrl();
         if (imagePath != null && !imagePath.isEmpty()) {

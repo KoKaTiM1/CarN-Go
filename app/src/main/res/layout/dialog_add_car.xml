@@ -94,13 +94,53 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:hint="Fuel Type (e.g. Gas, Hybrid, Electric)"
-            android:layout_marginBottom="8dp">
+            android:layout_marginBottom="16dp">
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/etFuelType"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:inputType="textCapWords" />
         </com.google.android.material.textfield.TextInputLayout>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Availability Window"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp"/>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="8dp">
+            <Button
+                android:id="@+id/btnPickStart"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Start Date/Time"
+                android:layout_marginEnd="4dp"/>
+            <Button
+                android:id="@+id/btnPickEnd"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="End Date/Time"
+                android:layout_marginStart="4dp"/>
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/tvSelectedAvailability"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="No window selected"
+            android:textSize="14sp"
+            android:layout_marginBottom="16dp"
+            android:textColor="?android:attr/textColorSecondary"/>
 
     </LinearLayout>
 </ScrollView>

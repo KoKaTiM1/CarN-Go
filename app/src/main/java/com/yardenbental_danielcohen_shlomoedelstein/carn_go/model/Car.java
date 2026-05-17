@@ -18,11 +18,13 @@ public class Car implements Serializable {
     private int seats;
     private String fuelType;
     private String tag;
+    private long availableFrom;
+    private long availableTo;
 
     /**
      * Constructs a new Car with the specified details.
      */
-    public Car(String id, String name, String type, String location, double pricePerHour, double rating, String imageUrl, String transmission, int seats, String fuelType, String tag) {
+    public Car(String id, String name, String type, String location, double pricePerHour, double rating, String imageUrl, String transmission, int seats, String fuelType, String tag, long availableFrom, long availableTo) {
         this.id = id;
         this.name = name;
         this.type = type;
@@ -34,6 +36,8 @@ public class Car implements Serializable {
         this.seats = seats;
         this.fuelType = fuelType;
         this.tag = tag;
+        this.availableFrom = availableFrom;
+        this.availableTo = availableTo;
     }
 
     public String getId() { return id; }
@@ -47,6 +51,10 @@ public class Car implements Serializable {
     public int getSeats() { return seats; }
     public String getFuelType() { return fuelType; }
     public String getTag() { return tag; }
+    public long getAvailableFrom() { return availableFrom; }
+    public long getAvailableTo() { return availableTo; }
 
     public void setId(String id) { this.id = id; }
+    public void setAvailableFrom(long availableFrom) { this.availableFrom = availableFrom; }
+    public void setAvailableTo(long availableTo) { this.availableTo = availableTo; }
 }

@@ -65,6 +65,8 @@ public class BrowseCarsFragment extends Fragment {
                             int seats = seatsLong != null ? seatsLong.intValue() : 5;
                             String fuelType = document.getString("fuelType");
                             String tag = document.getString("tag");
+                            Long availableFrom = document.getLong("availableFrom");
+                            Long availableTo = document.getLong("availableTo");
 
                             cars.add(new Car(
                                     document.getId(),
@@ -77,7 +79,9 @@ public class BrowseCarsFragment extends Fragment {
                                     transmission != null ? transmission : "Auto",
                                     seats,
                                     fuelType != null ? fuelType : "Gas",
-                                    tag != null ? tag : ""
+                                    tag != null ? tag : "",
+                                    availableFrom != null ? availableFrom : 0,
+                                    availableTo != null ? availableTo : 0
                             ));
                         } catch (Exception e) {
                             Log.e("BrowseCarsFragment", "Error parsing car", e);

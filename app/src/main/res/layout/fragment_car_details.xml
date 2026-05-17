@@ -162,6 +162,59 @@
                 android:textColor="@color/on_surface_variant"
                 android:textSize="16sp" />
 
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="32dp"
+                android:text="Availability"
+                android:textColor="@color/on_surface"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/tvDetailAvailableFrom"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="From: Jan 1, 2023 08:00"
+                    android:textColor="@color/on_surface_variant"
+                    android:textSize="16sp" />
+
+                <TextView
+                    android:id="@+id/tvDetailAvailableTo"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="To: Jan 2, 2023 20:00"
+                    android:textColor="@color/on_surface_variant"
+                    android:textSize="16sp" />
+
+                <TextView
+                    android:id="@+id/tvBusySlotsLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="Reserved Times:"
+                    android:textColor="@color/on_surface"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/tvBusySlots"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:textColor="@color/error"
+                    android:textSize="14sp"
+                    android:visibility="gone" />
+            </LinearLayout>
+
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnBookNow"
                 android:layout_width="match_parent"
