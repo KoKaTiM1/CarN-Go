@@ -56,7 +56,15 @@ import java.util.concurrent.TimeUnit;
 /**
  * Fragment that displays the cars owned or rented by the current user.
  */
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import android.os.Handler;
+import android.os.Looper;
+
 public class MyCarsFragment extends Fragment {
+    // ... existing fields ...
+    private final ExecutorService executorService = Executors.newSingleThreadExecutor();
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     private ActivityResultLauncher<String> pickImageLauncher;
     private RecyclerView rvMyCars;
@@ -412,48 +420,51 @@ public class MyCarsFragment extends Fragment {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
         Toast.makeText(getContext(), "Processing listing...", Toast.LENGTH_SHORT).show();
 
-        try {
-            // 1. Convert Image Uri to Bitmap
-            InputStream inputStream = requireContext().getContentResolver().openInputStream(imageUri);
-            Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
+        executorService.execute(() -> {
+            try {
+                // 1. Convert Image Uri to Bitmap (Background Thread)
+                InputStream inputStream = requireContext().getContentResolver().openInputStream(imageUri);
+                Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
 
-            // 2. IMPORTANT: Resize & Compress for Firestore (Firestore has a 1MB per document limit)
-            // We scale down the image and compress quality to 70% to keep it small.
-            Bitmap scaledBitmap = Bitmap.createScaledBitmap(bitmap, 640, 480, true);
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 70, outputStream);
+                // 2. Resize & Compress
+                Bitmap scaledBitmap = Bitmap.createScaledBitmap(bitmap, 640, 480, true);
+                ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+                scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 70, outputStream);
 
-            // 3. Convert to Base64 String
-            byte[] byteArray = outputStream.toByteArray();
-            String encodedImage = Base64.encodeToString(byteArray, Base64.DEFAULT);
+                // 3. Convert to Base64 String
+                byte[] byteArray = outputStream.toByteArray();
+                String encodedImage = Base64.encodeToString(byteArray, Base64.DEFAULT);
 
-            // 4. Save to Firestore
-            Map<String, Object> carData = new HashMap<>();
-            carData.put("name", carName);
-            carData.put("pricePerHour", price);
-            carData.put("location", location);
-            carData.put("type", type);
-            carData.put("imageUrl", encodedImage); // This now stores the bit data
-            carData.put("ownerId", FirestoreHelper.getCurrentUserId(getContext()));
-            carData.put("rating", 5.0);
-            carData.put("transmission", transmission);
-            carData.put("seats", seats);
-            carData.put("fuelType", fuelType);
-            carData.put("availableFrom", start);
-            carData.put("availableTo", end);
+                // 4. Save to Firestore
+                Map<String, Object> carData = new HashMap<>();
+                carData.put("name", carName);
+                carData.put("pricePerHour", price);
+                carData.put("location", location);
+                carData.put("type", type);
+                carData.put("imageUrl", encodedImage);
+                carData.put("ownerId", FirestoreHelper.getCurrentUserId(getContext()));
+                carData.put("rating", 5.0);
+                carData.put("transmission", transmission);
+                carData.put("seats", seats);
+                carData.put("fuelType", fuelType);
+                carData.put("availableFrom", start);
+                carData.put("availableTo", end);
 
-            db.collection("cars").add(carData)
-                    .addOnSuccessListener(documentReference -> {
-                        Toast.makeText(getContext(), "Listing added successfully!", Toast.LENGTH_SHORT).show();
-                        fetchMyCars(); // Refresh the list
-                    })
-                    .addOnFailureListener(e -> {
-                        Toast.makeText(getContext(), "Firestore Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                    });
+                db.collection("cars").add(carData)
+                        .addOnSuccessListener(documentReference -> {
+                            mainHandler.post(() -> {
+                                Toast.makeText(getContext(), "Listing added successfully!", Toast.LENGTH_SHORT).show();
+                                fetchMyCars();
+                            });
+                        })
+                        .addOnFailureListener(e -> {
+                            mainHandler.post(() -> Toast.makeText(getContext(), "Firestore Error: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+                        });
 
-        } catch (Exception e) {
-            e.printStackTrace();
-            Toast.makeText(getContext(), "Image processing failed.", Toast.LENGTH_SHORT).show();
-        }
+            } catch (Exception e) {
+                e.printStackTrace();
+                mainHandler.post(() -> Toast.makeText(getContext(), "Image processing failed.", Toast.LENGTH_SHORT).show());
+            }
+        });
     }
 }

@@ -95,6 +95,7 @@ public class CarDetailsFragment extends Fragment {
                     // It's a URL
                     Glide.with(this)
                             .load(imageUrl)
+                            .placeholder(R.drawable.ic_car_placeholder)
                             .into(ivCarImage);
                 } else {
                     // It's likely Base64 data
@@ -103,11 +104,14 @@ public class CarDetailsFragment extends Fragment {
                         Glide.with(this)
                                 .asBitmap()
                                 .load(decodedString)
+                                .placeholder(R.drawable.ic_car_placeholder)
                                 .into(ivCarImage);
                     } catch (Exception e) {
-                        e.printStackTrace();
+                        ivCarImage.setImageResource(R.drawable.ic_car_placeholder);
                     }
                 }
+            } else {
+                ivCarImage.setImageResource(R.drawable.ic_car_placeholder);
             }
         }
 

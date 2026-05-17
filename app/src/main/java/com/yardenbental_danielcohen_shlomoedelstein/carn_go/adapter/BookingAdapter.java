@@ -63,17 +63,25 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
                         .centerCrop()
                         .into(holder.ivCarImage);
             } else {
+                // For Base64 strings, we can pass them directly if they have the data:image prefix,
+                // but since these are raw Base64, we decode. 
+                // To keep onBindViewHolder fast, we let Glide's background threads handle it by passing the string if supported,
+                // or we can use a small optimization. Glide's load(byte[]) is good, but decode is still on UI.
+                // For now, we'll keep it as is but ensure it's wrapped safely.
                 try {
                     byte[] decodedString = Base64.decode(imagePath, Base64.DEFAULT);
                     Glide.with(holder.itemView.getContext())
                             .asBitmap()
                             .load(decodedString)
+                            .placeholder(R.drawable.ic_car_placeholder) // Add a placeholder
                             .centerCrop()
                             .into(holder.ivCarImage);
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    holder.ivCarImage.setImageResource(R.drawable.ic_car_placeholder);
                 }
             }
+        } else {
+            holder.ivCarImage.setImageResource(R.drawable.ic_car_placeholder);
         }
     }
 
