@@ -65,6 +65,7 @@ public class BrowseCarsFragment extends Fragment {
                             int seats = seatsLong != null ? seatsLong.intValue() : 5;
                             String fuelType = document.getString("fuelType");
                             String tag = document.getString("tag");
+                            String ownerId = document.getString("ownerId");
                             Long availableFrom = document.getLong("availableFrom");
                             Long availableTo = document.getLong("availableTo");
 
@@ -80,6 +81,7 @@ public class BrowseCarsFragment extends Fragment {
                                     seats,
                                     fuelType != null ? fuelType : "Gas",
                                     tag != null ? tag : "",
+                                    ownerId != null ? ownerId : "",
                                     availableFrom != null ? availableFrom : 0,
                                     availableTo != null ? availableTo : 0
                             ));

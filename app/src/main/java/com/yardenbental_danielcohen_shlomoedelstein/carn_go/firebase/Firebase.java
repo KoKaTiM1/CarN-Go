@@ -43,7 +43,8 @@ public class Firebase extends FirebaseMessagingService {
                         .setContentTitle(title)
                         .setContentText(messageBody)
                         .setAutoCancel(true)
-                        .setPriority(NotificationCompat.PRIORITY_HIGH) // Required for pop-up
+                        .setPriority(NotificationCompat.PRIORITY_MAX) // Changed to MAX for heads-up
+                        .setDefaults(NotificationCompat.DEFAULT_ALL)   // Added Sound/Vibration
                         .setContentIntent(pendingIntent);
 
         // Show the notification

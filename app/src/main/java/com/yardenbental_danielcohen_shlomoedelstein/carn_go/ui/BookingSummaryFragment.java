@@ -4,8 +4,6 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.text.Editable;
-import android.text.TextWatcher;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -30,7 +28,6 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.widget.Toolbar;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.NavController;
-import androidx.navigation.NavOptions;
 import androidx.navigation.Navigation;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
@@ -39,10 +36,12 @@ import com.yardenbental_danielcohen_shlomoedelstein.carn_go.R;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.firebase.FirestoreHelper;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Booking;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Car;
+import android.app.NotificationManager;
+import android.content.Context;
+import androidx.core.app.NotificationCompat;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
@@ -127,8 +126,11 @@ public class BookingSummaryFragment extends Fragment {
 
     private void fetchBookingsAndSuggestSlot(Car car, TextView tvDisplay, TextView tvTotal, TextView tvTotalLabel) {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
+        // Optimized: only fetch bookings that end after 'now'
         db.collection("bookings")
                 .whereEqualTo("carId", car.getId())
+                .whereGreaterThan("endTime", System.currentTimeMillis())
+                .orderBy("endTime")
                 .get()
                 .addOnSuccessListener(queryDocumentSnapshots -> {
                     existingBookings.clear();
@@ -137,10 +139,25 @@ public class BookingSummaryFragment extends Fragment {
                         existingBookings.add(b);
                     }
                     
-                    // Sort bookings by start time
+                    // Sort bookings by start time (though Firestore might have helped if we had multiple orderBy)
                     Collections.sort(existingBookings, (b1, b2) -> Long.compare(b1.getStartTime(), b2.getStartTime()));
                     
                     suggestFirstAvailableSlot(car, tvDisplay, tvTotal, tvTotalLabel);
+                })
+                .addOnFailureListener(e -> {
+                    android.util.Log.e("BookingSummary", "Error fetching bookings (check for missing index): " + e.getMessage());
+                    // Fallback to non-optimized query if index is missing (optional, but good for UX)
+                    db.collection("bookings")
+                            .whereEqualTo("carId", car.getId())
+                            .get()
+                            .addOnSuccessListener(snapshots -> {
+                                existingBookings.clear();
+                                for (QueryDocumentSnapshot doc : snapshots) {
+                                    existingBookings.add(doc.toObject(Booking.class));
+                                }
+                                Collections.sort(existingBookings, (b1, b2) -> Long.compare(b1.getStartTime(), b2.getStartTime()));
+                                suggestFirstAvailableSlot(car, tvDisplay, tvTotal, tvTotalLabel);
+                            });
                 });
     }
 
@@ -319,19 +336,17 @@ public class BookingSummaryFragment extends Fragment {
     private void checkOverlapAndConfirm(Car car) {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
         
-        // We need to check if any existing booking for this car overlaps with our selected window.
-        // Overlap condition: (StartA < EndB) AND (EndA > StartB)
+        // Optimized query: only check bookings that end after our selected start time
         db.collection("bookings")
                 .whereEqualTo("carId", car.getId())
+                .whereGreaterThan("endTime", selectedStartTimestamp)
                 .get()
                 .addOnSuccessListener(queryDocumentSnapshots -> {
                     boolean hasOverlap = false;
                     for (com.google.firebase.firestore.QueryDocumentSnapshot doc : queryDocumentSnapshots) {
                         Long existingStart = doc.getLong("startTime");
-                        Long existingEnd = doc.getLong("endTime");
-                        
-                        if (existingStart != null && existingEnd != null) {
-                            if (selectedStartTimestamp < existingEnd && selectedEndTimestamp > existingStart) {
+                        if (existingStart != null) {
+                            if (selectedEndTimestamp > existingStart) {
                                 hasOverlap = true;
                                 break;
                             }
@@ -339,17 +354,46 @@ public class BookingSummaryFragment extends Fragment {
                     }
                     
                     if (hasOverlap) {
-                        Toast.makeText(getContext(), "Overlaps with another booking. Auto-adjusting to next available slot...", Toast.LENGTH_LONG).show();
-                        suggestFirstAvailableSlot(car, getView().findViewById(R.id.tvSelectedBookingPeriod), 
-                                                 getView().findViewById(R.id.tvSummaryTotal), 
-                                                 getView().findViewById(R.id.tvTotalLabel));
+                        handleOverlap(car);
                     } else {
                         confirmBooking(car);
                     }
                 })
                 .addOnFailureListener(e -> {
-                    Toast.makeText(getContext(), "Error checking availability: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    android.util.Log.e("BookingSummary", "Check overlap failed (index may be building): " + e.getMessage());
+                    // Fallback to simple query if index is missing
+                    db.collection("bookings")
+                            .whereEqualTo("carId", car.getId())
+                            .get()
+                            .addOnSuccessListener(snapshots -> {
+                                boolean hasOverlap = false;
+                                for (com.google.firebase.firestore.QueryDocumentSnapshot doc : snapshots) {
+                                    Long existingStart = doc.getLong("startTime");
+                                    Long existingEnd = doc.getLong("endTime");
+                                    if (existingStart != null && existingEnd != null) {
+                                        if (selectedStartTimestamp < existingEnd && selectedEndTimestamp > existingStart) {
+                                            hasOverlap = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                                if (hasOverlap) {
+                                    handleOverlap(car);
+                                } else {
+                                    confirmBooking(car);
+                                }
+                            })
+                            .addOnFailureListener(e2 -> {
+                                Toast.makeText(getContext(), "Error checking availability: " + e2.getMessage(), Toast.LENGTH_SHORT).show();
+                            });
                 });
+    }
+
+    private void handleOverlap(Car car) {
+        Toast.makeText(getContext(), "Overlaps with another booking. Auto-adjusting...", Toast.LENGTH_LONG).show();
+        suggestFirstAvailableSlot(car, getView().findViewById(R.id.tvSelectedBookingPeriod), 
+                                 getView().findViewById(R.id.tvSummaryTotal), 
+                                 getView().findViewById(R.id.tvTotalLabel));
     }
 
     private void confirmBooking(Car car) {
@@ -361,6 +405,7 @@ public class BookingSummaryFragment extends Fragment {
         Map<String, Object> bookingData = new HashMap<>();
         bookingData.put("carId", car.getId());
         bookingData.put("userId", userId);
+        bookingData.put("ownerId", car.getOwnerId());
         bookingData.put("carName", car.getName());
         bookingData.put("carImageUrl", car.getImageUrl());
         bookingData.put("startTime", selectedStartTimestamp);
@@ -371,6 +416,9 @@ public class BookingSummaryFragment extends Fragment {
         db.collection("bookings").add(bookingData)
                 .addOnSuccessListener(documentReference -> {
                     Toast.makeText(getContext(), "Booking Confirmed!", Toast.LENGTH_SHORT).show();
+                    
+                    // Trigger notification to the owner
+                    notifyOwner(car);
                     
                     NavController navController = Navigation.findNavController(requireView());
                     // Pop everything in the Explore tab back to the car list
@@ -387,5 +435,58 @@ public class BookingSummaryFragment extends Fragment {
                 .addOnFailureListener(e -> {
                     Toast.makeText(getContext(), "Booking failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                 });
+    }
+
+    private void notifyOwner(Car car) {
+        String ownerId = car.getOwnerId();
+        if (ownerId == null || ownerId.isEmpty()) return;
+
+        // Capture application context to avoid null context when fragment is detached
+        Context appContext = requireContext().getApplicationContext();
+
+        FirestoreHelper.getUserToken(ownerId).addOnSuccessListener(documentSnapshot -> {
+            if (documentSnapshot.exists()) {
+                String token = documentSnapshot.getString("token");
+                if (token != null) {
+                    android.util.Log.d("BookingSummaryFragment", "Owner FCM Token found: " + token);
+                    
+                    // For testing: Show notification on this device
+                    showLocalNotification(appContext, "New Booking!", "Your car " + car.getName() + " has been booked!");
+                }
+            } else {
+                android.util.Log.w("BookingSummaryFragment", "No user document found for ownerId: " + ownerId);
+            }
+        }).addOnFailureListener(e -> {
+            android.util.Log.e("BookingSummaryFragment", "Failed to fetch owner token", e);
+        });
+    }
+
+    private void showLocalNotification(Context context, String title, String body) {
+        if (context == null) {
+            android.util.Log.e("BookingSummaryFragment", "Cannot show notification: context is null");
+            return;
+        }
+        
+        android.util.Log.d("BookingSummaryFragment", "Attempting to show notification: " + title);
+
+        NotificationManager notificationManager = (NotificationManager) 
+                context.getSystemService(Context.NOTIFICATION_SERVICE);
+        
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(context, com.yardenbental_danielcohen_shlomoedelstein.carn_go.App.CHANNEL_ID)
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setContentTitle(title)
+                .setContentText(body)
+                .setPriority(NotificationCompat.PRIORITY_MAX)   // Max priority for heads-up
+                .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+                .setDefaults(NotificationCompat.DEFAULT_ALL)   // Sound, Vibration, Lights
+                .setAutoCancel(true);
+
+        if (notificationManager != null) {
+            int notificationId = (int) System.currentTimeMillis();
+            notificationManager.notify(notificationId, builder.build());
+            android.util.Log.d("BookingSummaryFragment", "Notification ID " + notificationId + " sent to system");
+        } else {
+            android.util.Log.e("BookingSummaryFragment", "NotificationManager is null");
+        }
     }
 }

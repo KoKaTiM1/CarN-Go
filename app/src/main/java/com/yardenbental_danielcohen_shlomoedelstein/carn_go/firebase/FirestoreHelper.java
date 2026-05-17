@@ -2,7 +2,9 @@ package com.yardenbental_danielcohen_shlomoedelstein.carn_go.firebase;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import com.google.android.gms.tasks.Task;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import java.util.HashMap;
 import java.util.Map;
@@ -34,6 +36,19 @@ public class FirestoreHelper {
                 .collection("users")
                 .document(userID)
                 .set(data, com.google.firebase.firestore.SetOptions.merge());
+    }
+
+    /**
+     * Fetches the FCM token for a specific user.
+     *
+     * @param userId The ID of the user whose token to fetch.
+     * @return A Task that resolves to the token string.
+     */
+    public static Task<DocumentSnapshot> getUserToken(String userId) {
+        return FirebaseFirestore.getInstance()
+                .collection("users")
+                .document(userId)
+                .get();
     }
 
     /**

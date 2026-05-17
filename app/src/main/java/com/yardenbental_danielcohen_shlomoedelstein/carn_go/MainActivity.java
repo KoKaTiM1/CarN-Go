@@ -146,7 +146,6 @@ public class MainActivity extends AppCompatActivity {
                         return;
                     }
                     String token = task.getResult();
-                    Log.d("FCM", "Token: " + token);
                     FirestoreHelper.updateUserToken(MainActivity.this, token);
                 });
     }
