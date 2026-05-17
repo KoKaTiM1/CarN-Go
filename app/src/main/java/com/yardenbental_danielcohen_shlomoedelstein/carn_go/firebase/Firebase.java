@@ -56,7 +56,7 @@ public class Firebase extends FirebaseMessagingService {
     @Override
     public void onNewToken(@NonNull String token) {
         Log.d("FCM", "Token: " + token);
-        sendTokenToServer(token);
+            sendTokenToServer(token);
     }
 
     /**
