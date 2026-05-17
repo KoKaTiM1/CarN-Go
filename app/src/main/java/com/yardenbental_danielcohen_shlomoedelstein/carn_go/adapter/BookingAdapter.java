@@ -22,10 +22,19 @@ import java.util.Locale;
 
 public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingViewHolder> {
 
-    private List<Booking> bookingList;
+    public interface OnBookingActionListener {
+        void onApprove(Booking booking);
+        void onReject(Booking booking);
+    }
 
-    public BookingAdapter(List<Booking> bookingList) {
+    private List<Booking> bookingList;
+    private String currentUserId;
+    private OnBookingActionListener listener;
+
+    public BookingAdapter(List<Booking> bookingList, String currentUserId, OnBookingActionListener listener) {
         this.bookingList = bookingList;
+        this.currentUserId = currentUserId;
+        this.listener = listener;
     }
 
     @NonNull
@@ -40,6 +49,32 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
         Booking booking = bookingList.get(position);
 
         holder.tvCarName.setText(booking.getCarName());
+        
+        // Status display
+        String status = booking.getStatus() != null ? booking.getStatus() : "PENDING";
+        holder.tvStatus.setText(status);
+        if ("APPROVED".equals(status)) {
+            holder.tvStatus.setTextColor(holder.itemView.getContext().getColor(R.color.primary));
+        } else if ("REJECTED".equals(status)) {
+            holder.tvStatus.setTextColor(holder.itemView.getContext().getColor(R.color.error));
+        } else {
+            holder.tvStatus.setTextColor(holder.itemView.getContext().getColor(R.color.secondary));
+        }
+
+        // Action buttons visibility: Only show if I am the owner and it is PENDING
+        if (currentUserId != null && currentUserId.equals(booking.getOwnerId()) && "PENDING".equals(status)) {
+            holder.layoutActions.setVisibility(View.VISIBLE);
+        } else {
+            holder.layoutActions.setVisibility(View.GONE);
+        }
+
+        holder.btnApprove.setOnClickListener(v -> {
+            if (listener != null) listener.onApprove(booking);
+        });
+
+        holder.btnReject.setOnClickListener(v -> {
+            if (listener != null) listener.onReject(booking);
+        });
         
         long durationMillis = booking.getEndTime() - booking.getStartTime();
         long hours = TimeUnit.MILLISECONDS.toHours(durationMillis);
@@ -92,7 +127,9 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
 
     static class BookingViewHolder extends RecyclerView.ViewHolder {
         ImageView ivCarImage;
-        TextView tvCarName, tvDuration, tvDate, tvTotal;
+        TextView tvCarName, tvDuration, tvDate, tvTotal, tvStatus;
+        View layoutActions;
+        Button btnApprove, btnReject;
 
         public BookingViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -101,6 +138,10 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
             tvDuration = itemView.findViewById(R.id.tvBookingDuration);
             tvDate = itemView.findViewById(R.id.tvBookingDate);
             tvTotal = itemView.findViewById(R.id.tvBookingTotal);
+            tvStatus = itemView.findViewById(R.id.tvBookingStatus);
+            layoutActions = itemView.findViewById(R.id.layoutBookingActions);
+            btnApprove = itemView.findViewById(R.id.btnApproveBooking);
+            btnReject = itemView.findViewById(R.id.btnRejectBooking);
         }
     }
 }

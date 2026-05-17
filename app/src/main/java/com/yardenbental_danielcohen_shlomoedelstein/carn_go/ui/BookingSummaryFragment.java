@@ -412,6 +412,7 @@ public class BookingSummaryFragment extends Fragment {
         bookingData.put("endTime", selectedEndTimestamp);
         bookingData.put("totalCost", totalPrice);
         bookingData.put("timestamp", System.currentTimeMillis());
+        bookingData.put("status", "PENDING");
 
         db.collection("bookings").add(bookingData)
                 .addOnSuccessListener(documentReference -> {

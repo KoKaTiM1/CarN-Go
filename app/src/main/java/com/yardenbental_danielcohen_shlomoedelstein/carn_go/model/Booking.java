@@ -13,10 +13,11 @@ public class Booking implements Serializable {
     private long endTime;
     private double totalCost;
     private long timestamp;
+    private String status; // PENDING, APPROVED, REJECTED
 
     public Booking() {}
 
-    public Booking(String id, String carId, String userId, String ownerId, String carName, String carImageUrl, long startTime, long endTime, double totalCost, long timestamp) {
+    public Booking(String id, String carId, String userId, String ownerId, String carName, String carImageUrl, long startTime, long endTime, double totalCost, long timestamp, String status) {
         this.id = id;
         this.carId = carId;
         this.userId = userId;
@@ -27,6 +28,7 @@ public class Booking implements Serializable {
         this.endTime = endTime;
         this.totalCost = totalCost;
         this.timestamp = timestamp;
+        this.status = status;
     }
 
     public String getId() { return id; }
@@ -58,4 +60,7 @@ public class Booking implements Serializable {
 
     public long getTimestamp() { return timestamp; }
     public void setTimestamp(long timestamp) { this.timestamp = timestamp; }
+
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
 }
