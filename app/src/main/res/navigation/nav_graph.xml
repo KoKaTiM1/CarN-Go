@@ -49,6 +49,32 @@
         <action
             android:id="@+id/action_myBookingsFragment_to_rentalCompletionFragment"
             app:destination="@id/rentalCompletionFragment" />
+        <action
+            android:id="@+id/action_myBookingsFragment_to_rentalPickupFragment"
+            app:destination="@id/rentalPickupFragment" />
+        <action
+            android:id="@+id/action_myBookingsFragment_to_viewPhotosFragment"
+            app:destination="@id/viewPhotosFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/viewPhotosFragment"
+        android:name="com.yardenbental_danielcohen_shlomoedelstein.carn_go.ui.ViewPhotosFragment"
+        android:label="Rental Photos"
+        tools:layout="@layout/fragment_view_photos">
+        <argument
+            android:name="booking"
+            app:argType="com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Booking" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/rentalPickupFragment"
+        android:name="com.yardenbental_danielcohen_shlomoedelstein.carn_go.ui.RentalPickupFragment"
+        android:label="Start Rental"
+        tools:layout="@layout/fragment_rental_pickup">
+        <argument
+            android:name="booking"
+            app:argType="com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Booking" />
     </fragment>
 
     <fragment

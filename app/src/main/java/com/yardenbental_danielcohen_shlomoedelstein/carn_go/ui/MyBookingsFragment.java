@@ -23,9 +23,18 @@ import com.yardenbental_danielcohen_shlomoedelstein.carn_go.adapter.BookingAdapt
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.firebase.FirestoreHelper;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Booking;
 
+import org.json.JSONObject;
+import com.google.auth.oauth2.GoogleCredentials;
+
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
 
 public class MyBookingsFragment extends Fragment implements BookingAdapter.OnBookingActionListener {
 
@@ -118,12 +127,32 @@ public class MyBookingsFragment extends Fragment implements BookingAdapter.OnBoo
     }
 
     @Override
+    public void onPickupPhoto(Booking booking) {
+        Bundle bundle = new Bundle();
+        bundle.putSerializable("booking", booking);
+        if (getView() != null) {
+            Navigation.findNavController(getView())
+                    .navigate(R.id.action_myBookingsFragment_to_rentalPickupFragment, bundle);
+        }
+    }
+
+    @Override
     public void onFinish(Booking booking) {
         Bundle bundle = new Bundle();
         bundle.putSerializable("booking", booking);
         if (getView() != null) {
             Navigation.findNavController(getView())
                     .navigate(R.id.action_myBookingsFragment_to_rentalCompletionFragment, bundle);
+        }
+    }
+
+    @Override
+    public void onViewPhotos(Booking booking) {
+        Bundle bundle = new Bundle();
+        bundle.putSerializable("booking", booking);
+        if (getView() != null) {
+            Navigation.findNavController(getView())
+                    .navigate(R.id.action_myBookingsFragment_to_viewPhotosFragment, bundle);
         }
     }
 
@@ -159,14 +188,64 @@ public class MyBookingsFragment extends Fragment implements BookingAdapter.OnBoo
                     if (currentUserId != null && currentUserId.equals(renterId)) {
                         showLocalNotification(appContext, title, message);
                     } else {
-                        android.util.Log.d("MyBookingsFragment", "Simulation: Notification would be sent to Renter ID: " + renterId);
-                    }
+                        sendFCMNotification(appContext, token, title, message);                    }
                 }
             }
         });
     }
 
-    private void showLocalNotification(Context context, String title, String body) {
+    private void sendFCMNotification(Context context, String targetToken, String title, String body) {
+        new Thread(() -> {
+            try {
+                // 1. Get Access Token using the Service Account JSON
+                InputStream inputStream = context.getResources().openRawResource(R.raw.service_account);
+                GoogleCredentials credentials = GoogleCredentials.fromStream(inputStream)
+                        .createScoped(Collections.singletonList("https://www.googleapis.com/auth/cloud-platform"));
+                credentials.refreshIfExpired();
+                String accessToken = credentials.getAccessToken().getTokenValue();
+
+                // 2. Build the V1 JSON Structure
+                JSONObject message = new JSONObject();
+                JSONObject notification = new JSONObject();
+                notification.put("title", title);
+                notification.put("body", body);
+
+                message.put("token", targetToken);
+                message.put("notification", notification);
+
+                JSONObject root = new JSONObject();
+                root.put("message", message);
+
+                // 3. Send the Request
+                OkHttpClient client = new OkHttpClient();
+                RequestBody requestBody = RequestBody.create(
+                        root.toString(),
+                        MediaType.parse("application/json; charset=utf-8")
+                );
+
+                // Using project ID 'carn-go'
+                String url = "https://fcm.googleapis.com/v1/projects/carn-go/messages:send";
+
+                Request request = new Request.Builder()
+                        .url(url)
+                        .post(requestBody)
+                        .addHeader("Authorization", "Bearer " + accessToken)
+                        .build();
+
+                try (okhttp3.Response response = client.newCall(request).execute()) {
+                    if (response.isSuccessful()) {
+                        android.util.Log.d("FCM_DIAGNOSTIC", "MyBookings V1 - Success! Response: " + response.body().string());
+                    } else {
+                        android.util.Log.e("FCM_DIAGNOSTIC", "MyBookings V1 - Failed! Code: " + response.code() + " Body: " + response.body().string());
+                    }
+                }
+            } catch (Exception e) {
+                android.util.Log.e("FCM_DIAGNOSTIC", "MyBookings V1 - Error: " + e.getMessage(), e);
+            }
+        }).start();
+    }
+
+    public void showLocalNotification(Context context, String title, String body) {
         NotificationManager notificationManager = (NotificationManager)
                 context.getSystemService(Context.NOTIFICATION_SERVICE);
 

@@ -26,7 +26,9 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
     public interface OnBookingActionListener {
         void onApprove(Booking booking);
         void onReject(Booking booking);
+        void onPickupPhoto(Booking booking);
         void onFinish(Booking booking);
+        void onViewPhotos(Booking booking);
     }
 
     private List<Booking> bookingList;
@@ -68,14 +70,41 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
             holder.layoutActions.setVisibility(View.VISIBLE);
             holder.btnApprove.setVisibility(View.VISIBLE);
             holder.btnReject.setVisibility(View.VISIBLE);
+            holder.btnPickupPhoto.setVisibility(View.GONE);
             holder.btnFinish.setVisibility(View.GONE);
+            holder.btnViewPhotos.setVisibility(View.GONE);
         } else if (currentUserId != null && currentUserId.equals(booking.getUserId()) && "APPROVED".equals(status)) {
             holder.layoutActions.setVisibility(View.VISIBLE);
             holder.btnApprove.setVisibility(View.GONE);
             holder.btnReject.setVisibility(View.GONE);
-            holder.btnFinish.setVisibility(View.VISIBLE);
+            
+            // Logic: If no pickup photo, show pickup button. If pickup photo exists, show finish button.
+            if (booking.getStartPhotoUrl() == null || booking.getStartPhotoUrl().isEmpty()) {
+                holder.btnPickupPhoto.setVisibility(View.VISIBLE);
+                holder.btnFinish.setVisibility(View.GONE);
+            } else {
+                holder.btnPickupPhoto.setVisibility(View.GONE);
+                holder.btnFinish.setVisibility(View.VISIBLE);
+            }
+            holder.btnViewPhotos.setVisibility(View.GONE);
+        } else if ("COMPLETED".equals(status)) {
+            holder.layoutActions.setVisibility(View.VISIBLE);
+            holder.btnApprove.setVisibility(View.GONE);
+            holder.btnReject.setVisibility(View.GONE);
+            holder.btnPickupPhoto.setVisibility(View.GONE);
+            holder.btnFinish.setVisibility(View.GONE);
+            holder.btnViewPhotos.setVisibility(View.VISIBLE);
         } else {
             holder.layoutActions.setVisibility(View.GONE);
+        }
+
+        // Make the entire card clickable to view photos if completed
+        if ("COMPLETED".equals(status)) {
+            holder.itemView.setOnClickListener(v -> {
+                if (listener != null) listener.onViewPhotos(booking);
+            });
+        } else {
+            holder.itemView.setOnClickListener(null);
         }
 
         holder.btnApprove.setOnClickListener(v -> {
@@ -86,8 +115,16 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
             if (listener != null) listener.onReject(booking);
         });
 
+        holder.btnPickupPhoto.setOnClickListener(v -> {
+            if (listener != null) listener.onPickupPhoto(booking);
+        });
+
         holder.btnFinish.setOnClickListener(v -> {
             if (listener != null) listener.onFinish(booking);
+        });
+
+        holder.btnViewPhotos.setOnClickListener(v -> {
+            if (listener != null) listener.onViewPhotos(booking);
         });
         
         long durationMillis = booking.getEndTime() - booking.getStartTime();
@@ -143,7 +180,7 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
         ImageView ivCarImage;
         TextView tvCarName, tvDuration, tvDate, tvTotal, tvStatus;
         View layoutActions;
-        Button btnApprove, btnReject, btnFinish;
+        Button btnApprove, btnReject, btnPickupPhoto, btnFinish, btnViewPhotos;
 
         public BookingViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -156,7 +193,9 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
             layoutActions = itemView.findViewById(R.id.layoutBookingActions);
             btnApprove = itemView.findViewById(R.id.btnApproveBooking);
             btnReject = itemView.findViewById(R.id.btnRejectBooking);
+            btnPickupPhoto = itemView.findViewById(R.id.btnPickupPhoto);
             btnFinish = itemView.findViewById(R.id.btnFinishRental);
+            btnViewPhotos = itemView.findViewById(R.id.btnViewPhotos);
         }
     }
 }

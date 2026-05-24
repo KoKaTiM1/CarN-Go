@@ -1,5 +1,8 @@
 package com.yardenbental_danielcohen_shlomoedelstein.carn_go.ui;
 
+import android.app.AlarmManager;
+import android.app.PendingIntent;
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -31,7 +34,13 @@ import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.notifications.ReminderReceiver;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.R;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.firebase.FirestoreHelper;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Booking;
@@ -40,6 +49,7 @@ import android.app.NotificationManager;
 import android.content.Context;
 import androidx.core.app.NotificationCompat;
 
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -48,6 +58,8 @@ import java.util.HashMap;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
+
+import org.json.JSONObject;
 
 /**
  * Fragment that displays a summary of the booking for a selected car.
@@ -431,7 +443,37 @@ public class BookingSummaryFragment extends Fragment {
                 .addOnSuccessListener(documentReference -> {
                     Toast.makeText(getContext(), "Booking Confirmed!", Toast.LENGTH_SHORT).show();
                     
-                    // Trigger notification to the owner
+                    // 1. Schedule Reminders (Start and End)
+                    AlarmManager alarmManager = (AlarmManager) getContext().getSystemService(Context.ALARM_SERVICE);
+                    
+                    // Start Reminder (30 mins before)
+                    long startReminderTime = selectedStartTimestamp - (30 * 60 * 1000);
+                    Intent startIntent = new Intent(getContext(), ReminderReceiver.class);
+                    startIntent.putExtra("carName", car.getName());
+                    startIntent.putExtra("type", "START");
+                    PendingIntent startPi = PendingIntent.getBroadcast(getContext(), (int)System.currentTimeMillis(), startIntent, PendingIntent.FLAG_IMMUTABLE);
+                    
+                    // End Reminder (30 mins before end)
+                    long endReminderTime = selectedEndTimestamp - (30 * 60 * 1000);
+                    Intent endIntent = new Intent(getContext(), ReminderReceiver.class);
+                    endIntent.putExtra("carName", car.getName());
+                    endIntent.putExtra("type", "END");
+                    PendingIntent endPi = PendingIntent.getBroadcast(getContext(), (int)System.currentTimeMillis() + 1, endIntent, PendingIntent.FLAG_IMMUTABLE);
+
+                    if (alarmManager != null) {
+                        if (startReminderTime > System.currentTimeMillis()) {
+                            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, startReminderTime, startPi);
+                        }
+                        if (endReminderTime > System.currentTimeMillis()) {
+                            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, endReminderTime, endPi);
+                        }
+                    }
+
+                    // 2. Trigger local notification for the Renter (Added to bookings)
+                    showLocalNotification(getContext().getApplicationContext(), "Booking Submitted", 
+                            "Your request for " + car.getName() + " has been added to 'My Bookings'. Wait for owner approval!");
+
+                    // 3. Trigger notification to the owner
                     notifyOwner(car);
                     
                     NavController navController = Navigation.findNavController(requireView());
@@ -471,8 +513,7 @@ public class BookingSummaryFragment extends Fragment {
                     if (currentUserId != null && currentUserId.equals(ownerId)) {
                         showLocalNotification(appContext, "[TEST] Alert for Owner", "Your car " + car.getName() + " has a new booking request!");
                     } else {
-                        // In a real app, FCM would send this to the other user's device.
-                        android.util.Log.d("BookingSummaryFragment", "Simulation: Notification would be sent to Owner ID: " + ownerId);
+                        sendFCMNotification(appContext, token, "[TEST] Alert for Owner", "Your car " + car.getName() + " has a new booking request!");
                     }
                 }
             } else {
@@ -481,6 +522,58 @@ public class BookingSummaryFragment extends Fragment {
         }).addOnFailureListener(e -> {
             android.util.Log.e("BookingSummaryFragment", "Failed to fetch owner token", e);
         });
+    }
+
+    private void sendFCMNotification(Context context, String targetToken, String title, String body) {
+        new Thread(() -> {
+            try {
+                // 1. Get Access Token using the Service Account JSON
+                InputStream inputStream = context.getResources().openRawResource(R.raw.service_account);
+                com.google.auth.oauth2.GoogleCredentials credentials = 
+                    com.google.auth.oauth2.GoogleCredentials.fromStream(inputStream)
+                        .createScoped(Collections.singletonList("https://www.googleapis.com/auth/cloud-platform"));
+                credentials.refreshIfExpired();
+                String accessToken = credentials.getAccessToken().getTokenValue();
+
+                // 2. Build the V1 JSON Structure
+                JSONObject message = new JSONObject();
+                JSONObject notification = new JSONObject();
+                notification.put("title", title);
+                notification.put("body", body);
+                
+                message.put("token", targetToken);
+                message.put("notification", notification);
+
+                JSONObject root = new JSONObject();
+                root.put("message", message);
+
+                // 3. Send the Request
+                OkHttpClient client = new OkHttpClient();
+                RequestBody requestBody = RequestBody.create(
+                        root.toString(),
+                        MediaType.parse("application/json; charset=utf-8")
+                );
+
+                // Replace 'carn-go' with your actual Project ID if different
+                String url = "https://fcm.googleapis.com/v1/projects/carn-go/messages:send";
+
+                Request request = new Request.Builder()
+                        .url(url)
+                        .post(requestBody)
+                        .addHeader("Authorization", "Bearer " + accessToken)
+                        .build();
+
+                try (okhttp3.Response response = client.newCall(request).execute()) {
+                    if (response.isSuccessful()) {
+                        android.util.Log.d("FCM_DIAGNOSTIC", "V1 Success! Response: " + response.body().string());
+                    } else {
+                        android.util.Log.e("FCM_DIAGNOSTIC", "V1 Failed! Code: " + response.code() + " Body: " + response.body().string());
+                    }
+                }
+            } catch (Exception e) {
+                android.util.Log.e("FCM_DIAGNOSTIC", "V1 Error: " + e.getMessage(), e);
+            }
+        }).start();
     }
 
     private void showLocalNotification(Context context, String title, String body) {

@@ -106,6 +106,18 @@
                     android:textSize="12sp" />
 
                 <Button
+                    android:id="@+id/btnPickupPhoto"
+                    style="@style/Widget.Material3.Button.TonalButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:minHeight="32dp"
+                    android:paddingHorizontal="12dp"
+                    android:text="Pick-up Photo"
+                    android:textSize="12sp"
+                    android:visibility="gone" />
+
+                <Button
                     android:id="@+id/btnFinishRental"
                     style="@style/Widget.Material3.Button.TonalButton"
                     android:layout_width="wrap_content"
@@ -114,6 +126,18 @@
                     android:minHeight="32dp"
                     android:paddingHorizontal="12dp"
                     android:text="Finish Rental"
+                    android:textSize="12sp"
+                    android:visibility="gone" />
+
+                <Button
+                    android:id="@+id/btnViewPhotos"
+                    style="@style/Widget.Material3.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:minHeight="32dp"
+                    android:paddingHorizontal="12dp"
+                    android:text="View Photos"
                     android:textSize="12sp"
                     android:visibility="gone" />
             </LinearLayout>
