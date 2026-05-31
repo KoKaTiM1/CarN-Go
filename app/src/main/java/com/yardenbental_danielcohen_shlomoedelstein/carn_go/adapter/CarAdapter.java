@@ -85,6 +85,8 @@ public class CarAdapter extends RecyclerView.Adapter<CarAdapter.CarViewHolder> {
                 // It's a URL
                 Glide.with(holder.itemView.getContext())
                         .load(imagePath)
+                        .placeholder(R.drawable.ic_car_placeholder)
+                        .centerCrop()
                         .into(holder.ivCarImage);
             } else {
                 // It's likely Base64 data
@@ -93,12 +95,15 @@ public class CarAdapter extends RecyclerView.Adapter<CarAdapter.CarViewHolder> {
                     Glide.with(holder.itemView.getContext())
                             .asBitmap()
                             .load(decodedString)
+                            .placeholder(R.drawable.ic_car_placeholder)
                             .centerCrop() // Optimization: crop before rendering
                             .into(holder.ivCarImage);
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    holder.ivCarImage.setImageResource(R.drawable.ic_car_placeholder);
                 }
             }
+        } else {
+            holder.ivCarImage.setImageResource(R.drawable.ic_car_placeholder);
         }
 
         // Set click listeners for the item and the details button

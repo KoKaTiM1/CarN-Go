@@ -31,6 +31,12 @@ android {
         sourceCompatibility JavaVersion.VERSION_11
         targetCompatibility JavaVersion.VERSION_11
     }
+
+    packaging {
+        resources {
+            excludes += '/META-INF/DEPENDENCIES'
+        }
+    }
 }
 
 dependencies {
@@ -41,6 +47,7 @@ dependencies {
     implementation libs.constraintlayout
     implementation libs.navigation.fragment
     implementation libs.navigation.ui
+    implementation libs.swiperefreshlayout
     implementation libs.glide
 
     // Firebase (Versions managed via BoM in libs.versions.toml)
@@ -51,8 +58,8 @@ dependencies {
     implementation libs.firebase.messaging
     implementation libs.firebase.storage
 
-    // Other libraries
-    implementation libs.identity.jvm
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+    implementation 'com.google.auth:google-auth-library-oauth2-http:1.19.0'
 
     // Testing
     testImplementation libs.junit

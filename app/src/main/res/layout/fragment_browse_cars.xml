@@ -1,154 +1,160 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.swiperefreshlayout.widget.SwipeRefreshLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/swipeRefresh"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="@color/background">
+    android:layout_height="match_parent">
 
-    <LinearLayout
+    <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:paddingBottom="80dp">
+        android:layout_height="match_parent"
+        android:background="@color/background">
 
-        <!-- Header -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="24dp">
+            android:paddingBottom="80dp">
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Find your daily ride."
-                android:textColor="@color/on_surface"
-                android:textSize="32sp"
-                android:textStyle="bold" />
-
-            <!-- Search Bar -->
-            <com.google.android.material.card.MaterialCardView
+            <!-- Header -->
+            <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:layout_marginTop="24dp"
-                app:cardCornerRadius="28dp"
-                app:cardElevation="2dp"
-                app:strokeWidth="0dp">
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="24dp">
 
-                <RelativeLayout
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Find your daily ride."
+                    android:textColor="@color/on_surface"
+                    android:textSize="32sp"
+                    android:textStyle="bold" />
+
+                <!-- Search Bar -->
+                <com.google.android.material.card.MaterialCardView
                     android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:paddingHorizontal="16dp">
+                    android:layout_height="56dp"
+                    android:layout_marginTop="24dp"
+                    app:cardCornerRadius="28dp"
+                    app:cardElevation="2dp"
+                    app:strokeWidth="0dp">
 
-                    <ImageView
-                        android:id="@+id/ivSearch"
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:layout_centerVertical="true"
-                        android:src="@android:drawable/ic_menu_search"
-                        app:tint="@color/on_surface_variant" />
-
-                    <EditText
+                    <RelativeLayout
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
-                        android:layout_toEndOf="@id/ivSearch"
-                        android:background="@android:color/transparent"
-                        android:hint="Search for a budget car..."
-                        android:paddingStart="12dp"
-                        android:textSize="14sp" />
-                </RelativeLayout>
-            </com.google.android.material.card.MaterialCardView>
-        </LinearLayout>
+                        android:paddingHorizontal="16dp">
 
-        <!-- Categories -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="24dp"
-            android:text="Car Types"
-            android:textColor="@color/on_surface"
-            android:textSize="18sp"
-            android:textStyle="bold" />
+                        <ImageView
+                            android:id="@+id/ivSearch"
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:layout_centerVertical="true"
+                            android:src="@android:drawable/ic_menu_search"
+                            app:tint="@color/on_surface_variant" />
 
-        <HorizontalScrollView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:clipToPadding="false"
-            android:paddingHorizontal="24dp"
-            android:scrollbars="none">
-
-            <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal">
-
-                <com.google.android.material.button.MaterialButton
-                    style="@style/Widget.Material3.Button.TonalButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Economy"
-                    app:icon="@android:drawable/ic_menu_save" />
-
-                <com.google.android.material.button.MaterialButton
-                    style="@style/Widget.Material3.Button.TonalButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="12dp"
-                    android:text="Compact"
-                    app:icon="@android:drawable/ic_menu_directions" />
-
-                <com.google.android.material.button.MaterialButton
-                    style="@style/Widget.Material3.Button.TonalButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="12dp"
-                    android:text="Hybrid"
-                    app:icon="@android:drawable/ic_menu_day" />
+                        <EditText
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:layout_toEndOf="@id/ivSearch"
+                            android:background="@android:color/transparent"
+                            android:hint="Search for a budget car..."
+                            android:paddingStart="12dp"
+                            android:textSize="14sp" />
+                    </RelativeLayout>
+                </com.google.android.material.card.MaterialCardView>
             </LinearLayout>
-        </HorizontalScrollView>
 
-        <!-- Available Nearby -->
-        <RelativeLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="32dp"
-            android:paddingHorizontal="24dp">
-
+            <!-- Categories -->
             <TextView
-                android:id="@+id/tvNearbyTitle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Available Nearby"
+                android:layout_marginStart="24dp"
+                android:text="Car Types"
                 android:textColor="@color/on_surface"
                 android:textSize="18sp"
                 android:textStyle="bold" />
 
-            <TextView
-                android:layout_width="wrap_content"
+            <HorizontalScrollView
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_below="@id/tvNearbyTitle"
-                android:text="Perfect for school, work, or errands"
-                android:textColor="@color/on_surface_variant"
-                android:textSize="12sp" />
+                android:layout_marginTop="16dp"
+                android:clipToPadding="false"
+                android:paddingHorizontal="24dp"
+                android:scrollbars="none">
 
-            <com.google.android.material.button.MaterialButton
-                style="@style/Widget.Material3.Button.TextButton"
-                android:layout_width="wrap_content"
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.button.MaterialButton
+                        style="@style/Widget.Material3.Button.TonalButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Economy"
+                        app:icon="@android:drawable/ic_menu_save" />
+
+                    <com.google.android.material.button.MaterialButton
+                        style="@style/Widget.Material3.Button.TonalButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="12dp"
+                        android:text="Compact"
+                        app:icon="@android:drawable/ic_menu_directions" />
+
+                    <com.google.android.material.button.MaterialButton
+                        style="@style/Widget.Material3.Button.TonalButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="12dp"
+                        android:text="Hybrid"
+                        app:icon="@android:drawable/ic_menu_day" />
+                </LinearLayout>
+            </HorizontalScrollView>
+
+            <!-- Available Nearby -->
+            <RelativeLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_alignParentEnd="true"
-                android:text="Filter"
-                app:icon="@android:drawable/ic_menu_manage" />
-        </RelativeLayout>
+                android:layout_marginTop="32dp"
+                android:paddingHorizontal="24dp">
 
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/rvCars"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:nestedScrollingEnabled="false"
-            tools:listitem="@layout/item_car" />
+                <TextView
+                    android:id="@+id/tvNearbyTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Available Nearby"
+                    android:textColor="@color/on_surface"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
 
-    </LinearLayout>
-</androidx.core.widget.NestedScrollView>
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_below="@id/tvNearbyTitle"
+                    android:text="Perfect for school, work, or errands"
+                    android:textColor="@color/on_surface_variant"
+                    android:textSize="12sp" />
+
+                <com.google.android.material.button.MaterialButton
+                    style="@style/Widget.Material3.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_alignParentEnd="true"
+                    android:text="Filter"
+                    app:icon="@android:drawable/ic_menu_manage" />
+            </RelativeLayout>
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvCars"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:nestedScrollingEnabled="false"
+                tools:listitem="@layout/item_car" />
+
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+</androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
