@@ -1,7 +1,10 @@
 package com.yardenbental_danielcohen_shlomoedelstein.carn_go.ui;
 
 import android.Manifest;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.net.Uri;
@@ -37,6 +40,7 @@ import com.yardenbental_danielcohen_shlomoedelstein.carn_go.AppPreferences;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.R;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.adapter.CarAdapter;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Car;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.sync.BookingSyncScheduler;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -62,6 +66,12 @@ public class BrowseCarsFragment extends Fragment {
     private MaterialButton btnEconomy;
     private MaterialButton btnCompact;
     private MaterialButton btnHybrid;
+    private final BroadcastReceiver syncReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            loadCars();
+        }
+    };
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -121,6 +131,12 @@ public class BrowseCarsFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
+        ContextCompat.registerReceiver(
+                requireContext(),
+                syncReceiver,
+                new IntentFilter(BookingSyncScheduler.ACTION_SYNC_COMPLETED),
+                ContextCompat.RECEIVER_NOT_EXPORTED
+        );
         loadCars();
         startPeriodicRefresh();
         ensureLocationReady();
@@ -130,6 +146,10 @@ public class BrowseCarsFragment extends Fragment {
     public void onPause() {
         super.onPause();
         stopPeriodicRefresh();
+        try {
+            requireContext().unregisterReceiver(syncReceiver);
+        } catch (IllegalArgumentException ignored) {
+        }
     }
 
     private void setTypeFilter(@Nullable String typeFilter) {
@@ -214,6 +234,10 @@ public class BrowseCarsFragment extends Fragment {
                         try {
                             Long availableTo = document.getLong("availableTo");
                             if (availableTo != null && availableTo < currentTime) {
+                                continue;
+                            }
+                            Boolean isCurrentlyAvailable = document.getBoolean("isCurrentlyAvailable");
+                            if (isCurrentlyAvailable != null && !isCurrentlyAvailable) {
                                 continue;
                             }
 

@@ -59,8 +59,16 @@
             </intent-filter>
         </service>
 
+        <service
+            android:name=".sync.BookingSyncService"
+            android:exported="false" />
+
         <receiver
             android:name=".notifications.ReminderReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name=".sync.BookingSyncReceiver"
             android:exported="false" />
     </application>
 </manifest>

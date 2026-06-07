@@ -1,7 +1,10 @@
 package com.yardenbental_danielcohen_shlomoedelstein.carn_go.ui;
 
 import android.app.NotificationManager;
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -11,6 +14,7 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 import androidx.core.app.NotificationCompat;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.Navigation;
@@ -22,6 +26,8 @@ import com.yardenbental_danielcohen_shlomoedelstein.carn_go.R;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.adapter.BookingAdapter;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.firebase.FirestoreHelper;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Booking;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.sync.BookingStatus;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.sync.BookingSyncScheduler;
 
 import org.json.JSONObject;
 import com.google.auth.oauth2.GoogleCredentials;
@@ -42,6 +48,12 @@ public class MyBookingsFragment extends Fragment implements BookingAdapter.OnBoo
     private BookingAdapter adapter;
     private List<Booking> bookingList;
     private LinearLayout layoutNoBookings;
+    private final BroadcastReceiver syncReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            loadBookings();
+        }
+    };
 
     @Nullable
     @Override
@@ -60,6 +72,27 @@ public class MyBookingsFragment extends Fragment implements BookingAdapter.OnBoo
         loadBookings();
 
         return view;
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        ContextCompat.registerReceiver(
+                requireContext(),
+                syncReceiver,
+                new IntentFilter(BookingSyncScheduler.ACTION_SYNC_COMPLETED),
+                ContextCompat.RECEIVER_NOT_EXPORTED
+        );
+        loadBookings();
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        try {
+            requireContext().unregisterReceiver(syncReceiver);
+        } catch (IllegalArgumentException ignored) {
+        }
     }
 
     private void loadBookings() {
@@ -166,6 +199,7 @@ public class MyBookingsFragment extends Fragment implements BookingAdapter.OnBoo
                     adapter.notifyDataSetChanged();
                     
                     notifyRenter(booking, newStatus);
+                    BookingSyncScheduler.requestImmediateSync(requireContext(), "booking_status_" + newStatus.toLowerCase());
                 })
                 .addOnFailureListener(e -> Toast.makeText(getContext(), "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show());
     }
@@ -177,7 +211,7 @@ public class MyBookingsFragment extends Fragment implements BookingAdapter.OnBoo
         if (context == null) return;
         Context appContext = context.getApplicationContext();
 
-        String title = status.equals("APPROVED") ? "[TEST] Alert for Renter: Approved" : "[TEST] Alert for Renter: Rejected";
+        String title = BookingStatus.APPROVED.equals(status) ? "[TEST] Alert for Renter: Approved" : "[TEST] Alert for Renter: Rejected";
         String message = "Your booking for " + booking.getCarName() + " has been " + status.toLowerCase() + " by the owner.";
 
         FirestoreHelper.getUserToken(renterId).addOnSuccessListener(documentSnapshot -> {

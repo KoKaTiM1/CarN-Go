@@ -23,6 +23,8 @@ import androidx.navigation.Navigation;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.R;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Booking;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.sync.BookingStatus;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.sync.BookingSyncScheduler;
 
 import java.io.ByteArrayOutputStream;
 
@@ -85,8 +87,9 @@ public class RentalPickupFragment extends Fragment {
         btnSubmit.setEnabled(false);
         FirebaseFirestore db = FirebaseFirestore.getInstance();
         db.collection("bookings").document(booking.getId())
-                .update("startPhotoUrl", base64Image)
+                .update("startPhotoUrl", base64Image, "status", BookingStatus.ACTIVE)
                 .addOnSuccessListener(aVoid -> {
+                    BookingSyncScheduler.requestImmediateSync(requireContext(), "rental_pickup");
                     Toast.makeText(getContext(), "Pickup photo uploaded! You can now start your journey.", Toast.LENGTH_SHORT).show();
                     Navigation.findNavController(requireView()).navigateUp();
                 })

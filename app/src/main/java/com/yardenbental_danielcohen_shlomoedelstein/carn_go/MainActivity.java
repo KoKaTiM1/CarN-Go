@@ -32,6 +32,7 @@ import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.firebase.FirestoreHelper;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.sync.BookingSyncScheduler;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.ui.SettingsActivity;
 
 
@@ -121,6 +122,7 @@ public class MainActivity extends AppCompatActivity {
                 if (task.isSuccessful()) {
                     Log.d("Auth", "signInAnonymously:success");
                     initializeFCM();
+                    BookingSyncScheduler.requestImmediateSync(MainActivity.this, "app_launch");
                 } else {
                     Exception e = task.getException();
                     Log.w("Auth", "signInAnonymously:failure", e);
@@ -129,11 +131,13 @@ public class MainActivity extends AppCompatActivity {
                     }
                     // Fallback to initializing FCM anyway (FirestoreHelper will use SharedPreferences ID)
                     initializeFCM();
+                    BookingSyncScheduler.requestImmediateSync(MainActivity.this, "app_launch_fallback");
                 }
             });
         } else {
             // Already signed in
             initializeFCM();
+            BookingSyncScheduler.requestImmediateSync(this, "app_launch_existing_user");
         }
     }
 
