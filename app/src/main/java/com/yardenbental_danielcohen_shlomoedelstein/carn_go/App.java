@@ -11,28 +11,37 @@ import android.os.Build;
 public class App extends Application {
 
     public static final String CHANNEL_ID = "fcm_pop_up_channel";
+    public static final String SYNC_CHANNEL_ID = "booking_sync_channel";
 
     @Override
     public void onCreate() {
         super.onCreate();
-        createNotificationChannel();
+        createNotificationChannels();
     }
 
     /**
      * Creates the notification channel for the application.
      * Since minSdk is 26 (Android 8.0), the check for SDK version is not required.
      */
-    private void createNotificationChannel() {
-        CharSequence name = "General Notifications";
-        String description = "Used for general app updates and news";
-        int importance = NotificationManager.IMPORTANCE_HIGH;
-        NotificationChannel channel = new NotificationChannel(CHANNEL_ID, name, importance);
-        channel.setDescription(description);
+    private void createNotificationChannels() {
+        NotificationChannel generalChannel = new NotificationChannel(
+                CHANNEL_ID,
+                "General Notifications",
+                NotificationManager.IMPORTANCE_HIGH
+        );
+        generalChannel.setDescription("Used for general app updates and news");
 
-        // Register the channel with the system
+        NotificationChannel syncChannel = new NotificationChannel(
+                SYNC_CHANNEL_ID,
+                "Booking Sync Service",
+                NotificationManager.IMPORTANCE_LOW
+        );
+        syncChannel.setDescription("Used while background booking and availability sync is running");
+
         NotificationManager notificationManager = getSystemService(NotificationManager.class);
         if (notificationManager != null) {
-            notificationManager.createNotificationChannel(channel);
+            notificationManager.createNotificationChannel(generalChannel);
+            notificationManager.createNotificationChannel(syncChannel);
         }
     }
 }

@@ -311,7 +311,8 @@ public class BookingSummaryFragment extends Fragment {
             long newTimestamp = localCal.getTimeInMillis();
 
             if (isStart) {
-                if (newTimestamp < now) {
+                long pickerAlignedNow = now - (now % TimeUnit.MINUTES.toMillis(1));
+                if (newTimestamp < pickerAlignedNow) {
                     Toast.makeText(getContext(), "Start time cannot be in the past", Toast.LENGTH_SHORT).show();
                     return;
                 }

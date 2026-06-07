@@ -47,17 +47,20 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.TimeUnit;
 
 public class BrowseCarsFragment extends Fragment {
 
     private static final long REFRESH_INTERVAL = 600000;
+    private static final long MIN_RELOAD_GAP_MS = 1500;
+    private static final long LOCATION_REFRESH_INTERVAL_MS = TimeUnit.MINUTES.toMillis(10);
 
     private SwipeRefreshLayout swipeRefresh;
     private CarAdapter adapter;
     private final List<Car> cars = new ArrayList<>();
     private final List<Car> allCars = new ArrayList<>();
     private final Handler refreshHandler = new Handler(Looper.getMainLooper());
-    private final Runnable refreshRunnable = this::loadCars;
+    private final Runnable refreshRunnable = () -> requestCarsReload(true);
     private FusedLocationProviderClient fusedLocationClient;
     private ActivityResultLauncher<String[]> locationPermissionLauncher;
     private Location currentLocation;
@@ -66,10 +69,16 @@ public class BrowseCarsFragment extends Fragment {
     private MaterialButton btnEconomy;
     private MaterialButton btnCompact;
     private MaterialButton btnHybrid;
+    private boolean isLoadingCars = false;
+    private boolean pendingReload = false;
+    private long lastLoadStartedAt = 0L;
+    private long lastLoadCompletedAt = 0L;
+    private long lastLocationRefreshAt = 0L;
+    private int lastAppliedRadiusKm = Integer.MIN_VALUE;
     private final BroadcastReceiver syncReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            loadCars();
+            requestCarsReload(true);
         }
     };
 
@@ -100,7 +109,8 @@ public class BrowseCarsFragment extends Fragment {
 
         swipeRefresh = view.findViewById(R.id.swipeRefresh);
         if (swipeRefresh != null) {
-            swipeRefresh.setOnRefreshListener(this::loadCars);
+            swipeRefresh.setOnRefreshListener(() -> requestCarsReload(true));
+            swipeRefresh.setRefreshing(false);
         }
 
         RecyclerView rvCars = view.findViewById(R.id.rvCars);
@@ -124,7 +134,6 @@ public class BrowseCarsFragment extends Fragment {
         btnHybrid.setOnClickListener(v -> setTypeFilter(getString(R.string.hybrid)));
         updateTypeButtons();
 
-        loadCars();
         return view;
     }
 
@@ -137,15 +146,15 @@ public class BrowseCarsFragment extends Fragment {
                 new IntentFilter(BookingSyncScheduler.ACTION_SYNC_COMPLETED),
                 ContextCompat.RECEIVER_NOT_EXPORTED
         );
-        loadCars();
         startPeriodicRefresh();
-        ensureLocationReady();
+        refreshOnResume();
     }
 
     @Override
     public void onPause() {
         super.onPause();
         stopPeriodicRefresh();
+        setRefreshingState(false);
         try {
             requireContext().unregisterReceiver(syncReceiver);
         } catch (IllegalArgumentException ignored) {
@@ -170,11 +179,48 @@ public class BrowseCarsFragment extends Fragment {
     }
 
     private void startPeriodicRefresh() {
+        refreshHandler.removeCallbacks(refreshRunnable);
         refreshHandler.postDelayed(refreshRunnable, REFRESH_INTERVAL);
     }
 
     private void stopPeriodicRefresh() {
         refreshHandler.removeCallbacks(refreshRunnable);
+    }
+
+    private void requestCarsReload(boolean force) {
+        long now = System.currentTimeMillis();
+        if (!force && now - lastLoadStartedAt < MIN_RELOAD_GAP_MS) {
+            setRefreshingState(false);
+            return;
+        }
+        if (isLoadingCars) {
+            pendingReload = true;
+            setRefreshingState(false);
+            return;
+        }
+        loadCars();
+    }
+
+    private void refreshOnResume() {
+        int radiusKm = AppPreferences.getSearchRadiusKm(requireContext());
+        boolean radiusChanged = radiusKm != lastAppliedRadiusKm;
+        boolean needsInitialLoad = allCars.isEmpty();
+        boolean staleData = System.currentTimeMillis() - lastLoadCompletedAt >= REFRESH_INTERVAL;
+
+        if (needsInitialLoad || staleData) {
+            requestCarsReload(needsInitialLoad);
+        } else {
+            setRefreshingState(false);
+            if (radiusChanged) {
+                lastAppliedRadiusKm = radiusKm;
+                applyFiltersAndSort();
+            }
+            maybeRefreshLocation();
+        }
+
+        if (!hasLocationPermission()) {
+            ensureLocationReady();
+        }
     }
 
     private void ensureLocationReady() {
@@ -212,17 +258,15 @@ public class BrowseCarsFragment extends Fragment {
         if (!hasLocationPermission()) {
             return;
         }
-        requestCurrentLocationOnce();
+        maybeRefreshLocation();
     }
 
     private void loadCars() {
-        if (swipeRefresh != null) {
-            swipeRefresh.setRefreshing(true);
-        }
+        isLoadingCars = true;
+        lastLoadStartedAt = System.currentTimeMillis();
+        setRefreshingState(true);
 
-        if (hasLocationPermission()) {
-            requestCurrentLocationOnce();
-        }
+        maybeRefreshLocation();
 
         long currentTime = System.currentTimeMillis();
 
@@ -234,10 +278,6 @@ public class BrowseCarsFragment extends Fragment {
                         try {
                             Long availableTo = document.getLong("availableTo");
                             if (availableTo != null && availableTo < currentTime) {
-                                continue;
-                            }
-                            Boolean isCurrentlyAvailable = document.getBoolean("isCurrentlyAvailable");
-                            if (isCurrentlyAvailable != null && !isCurrentlyAvailable) {
                                 continue;
                             }
 
@@ -294,6 +334,7 @@ public class BrowseCarsFragment extends Fragment {
         }
 
         int radiusKm = AppPreferences.getSearchRadiusKm(requireContext());
+        lastAppliedRadiusKm = radiusKm;
         cars.clear();
 
         for (Car car : allCars) {
@@ -350,11 +391,15 @@ public class BrowseCarsFragment extends Fragment {
     }
 
     private void finishLoading() {
-        if (swipeRefresh != null) {
-            swipeRefresh.setRefreshing(false);
-        }
+        isLoadingCars = false;
+        lastLoadCompletedAt = System.currentTimeMillis();
+        setRefreshingState(false);
         stopPeriodicRefresh();
         startPeriodicRefresh();
+        if (pendingReload) {
+            pendingReload = false;
+            requestCarsReload(false);
+        }
     }
 
     private void showLocationSettingsDialog() {
@@ -373,12 +418,14 @@ public class BrowseCarsFragment extends Fragment {
     private void requestCurrentLocationOnce() {
         fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
                 .addOnSuccessListener(location -> {
+                    lastLocationRefreshAt = System.currentTimeMillis();
                     if (location != null) {
                         currentLocation = location;
                         applyFiltersAndSort();
                     } else {
                         fusedLocationClient.getLastLocation()
                                 .addOnSuccessListener(lastLocation -> {
+                                    lastLocationRefreshAt = System.currentTimeMillis();
                                     if (lastLocation != null) {
                                         currentLocation = lastLocation;
                                         applyFiltersAndSort();
@@ -386,5 +433,22 @@ public class BrowseCarsFragment extends Fragment {
                                 });
                     }
                 });
+    }
+
+    private void maybeRefreshLocation() {
+        if (!hasLocationPermission()) {
+            return;
+        }
+        if (currentLocation != null
+                && System.currentTimeMillis() - lastLocationRefreshAt < LOCATION_REFRESH_INTERVAL_MS) {
+            return;
+        }
+        requestCurrentLocationOnce();
+    }
+
+    private void setRefreshingState(boolean refreshing) {
+        if (swipeRefresh != null) {
+            swipeRefresh.setRefreshing(refreshing);
+        }
     }
 }

@@ -6,6 +6,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.util.Log;
 
+import androidx.core.content.ContextCompat;
+
 import java.util.concurrent.TimeUnit;
 
 public final class BookingSyncScheduler {
@@ -27,7 +29,7 @@ public final class BookingSyncScheduler {
         Intent intent = new Intent(appContext, BookingSyncService.class);
         intent.putExtra(EXTRA_SYNC_REASON, reason);
         try {
-            appContext.startService(intent);
+            ContextCompat.startForegroundService(appContext, intent);
         } catch (Exception e) {
             Log.e("BookingSyncScheduler", "Failed to start sync service", e);
         }
