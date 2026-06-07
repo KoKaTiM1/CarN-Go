@@ -15,9 +15,6 @@ import com.yardenbental_danielcohen_shlomoedelstein.carn_go.R;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Car;
 
 import java.util.List;
-
-
-
 /**
  * Adapter for displaying a list of Car objects in a RecyclerView.
  */
@@ -61,7 +58,14 @@ public class CarAdapter extends RecyclerView.Adapter<CarAdapter.CarViewHolder> {
 
         // Bind car data to UI elements
         holder.tvCarName.setText(car.getName());
-        holder.tvLocation.setText(car.getLocation());
+        if (car.getDistanceKm() != null) {
+            String locationText = car.getLocation() == null || car.getLocation().isEmpty()
+                    ? holder.itemView.getContext().getString(R.string.distance_away_only, car.getDistanceKm())
+                    : holder.itemView.getContext().getString(R.string.location_with_distance, car.getLocation(), car.getDistanceKm());
+            holder.tvLocation.setText(locationText);
+        } else {
+            holder.tvLocation.setText(car.getLocation());
+        }
 
         holder.tvPrice.setText(holder.itemView.getContext().getString(R.string.price_per_hour, (int)car.getPricePerHour()));
         holder.tvRating.setText(String.valueOf(car.getRating()));

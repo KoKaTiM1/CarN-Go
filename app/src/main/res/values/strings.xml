@@ -2,6 +2,7 @@
     <string name="app_name">CarN-Go</string>
     <string name="find_your_daily_ride">Find your daily ride.</string>
     <string name="search_hint">Search for a budget car...</string>
+    <string name="all_types">All</string>
     <string name="car_types">Car Types</string>
     <string name="economy">Economy</string>
     <string name="compact">Compact</string>
@@ -55,5 +56,23 @@
     <string name="error_image_processing">Image processing failed.</string>
     <string name="listing_added">Listing added successfully!</string>
     <string name="firestore_error">Firestore Error: %1$s</string>
+    <string name="location_permission_title">Location permission needed</string>
+    <string name="location_permission_explore_message">Location is a key part of CarN-Go. Allow it so Explore can sort nearby cars first and apply your range filter.</string>
+    <string name="location_permission_owner_message">Allow location so we can fill the car location automatically before you save the listing.</string>
+    <string name="location_permission_settings_message">Location is still blocked. Open app settings and allow location to use GPS-based car discovery and auto-fill.</string>
+    <string name="allow_location">Allow location</string>
+    <string name="continue_without_location">Continue without location</string>
+    <string name="open_settings">Open settings</string>
+    <string name="location_detected">Location detected</string>
+    <string name="location_unavailable">Could not get your current location</string>
+    <string name="current_location_label">Current location</string>
+    <string name="location_unavailable_label">Location unavailable</string>
+    <string name="distance_away_only">%.1f km away</string>
+    <string name="location_with_distance">%1$s • %2$.1f km away</string>
+    <string name="failed_to_load_cars">Failed to load cars</string>
+    <string name="search_range_title">Search radius</string>
+    <string name="search_range_description">Choose how far Explore should search for cars around your current location.</string>
+    <string name="search_range_no_limit">No limit</string>
+    <string name="search_range_value">%1$d km</string>
 
 </resources>
