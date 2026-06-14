@@ -24,7 +24,6 @@ import androidx.navigation.ui.NavigationUI;
 import androidx.appcompat.widget.Toolbar;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.widget.Toast;
 
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
@@ -33,6 +32,7 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.firebase.FirestoreHelper;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.sync.BookingSyncScheduler;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.ui.AboutActivity;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.ui.SettingsActivity;
 
 
@@ -87,7 +87,7 @@ public class MainActivity extends AppCompatActivity {
             startActivity(new Intent(this, SettingsActivity.class));
             return true;
         } else if (id == R.id.action_about) {
-            Toast.makeText(this, "About clicked", Toast.LENGTH_SHORT).show();
+            startActivity(new Intent(this, AboutActivity.class));
             return true;
         } else if (id == R.id.action_exit) {
             finish();

@@ -23,6 +23,12 @@
     <string name="menu_settings">Settings</string>
     <string name="menu_about">About</string>
     <string name="menu_exit">Exit</string>
+    <string name="about_app_title">About CarN-Go</string>
+    <string name="about_app_description">CarN-Go is a peer-to-peer car sharing application that helps users find nearby cars, view full car details, and manage bookings in one place. The app is designed to make short-term rentals simple, fast, and convenient for both renters and car owners.</string>
+    <string name="about_features_title">What the app includes</string>
+    <string name="about_features_body">Browse nearby cars with location support, view car details and availability, create and manage bookings, add personal cars for rent, receive booking-related notifications, and control app preferences such as search radius, reminders, and dark mode.</string>
+    <string name="about_developers_title">Developers</string>
+    <string name="about_developers_body">Yarden Bental\nDaniel Cohen\nShlomo Edelstein</string>
 
     <!-- MyCarsFragment Strings -->
     <string name="take_photo">Take Photo (Camera)</string>
@@ -74,5 +80,11 @@
     <string name="search_range_description">Choose how far Explore should search for cars around your current location.</string>
     <string name="search_range_no_limit">No limit</string>
     <string name="search_range_value">%1$d km</string>
+    <string name="booking_reminders_title">Booking reminders</string>
+    <string name="booking_reminders_description">Turn pickup and return reminders on or off for your rentals.</string>
+    <string name="booking_reminders_switch">30-minute booking reminders</string>
+    <string name="dark_mode_title">Dark mode</string>
+    <string name="dark_mode_description">Use a darker theme across the app.</string>
+    <string name="dark_mode_switch">Enable dark mode</string>
 
 </resources>

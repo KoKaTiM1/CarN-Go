@@ -8,6 +8,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
 import com.google.android.material.slider.Slider;
+import com.google.android.material.switchmaterial.SwitchMaterial;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.AppPreferences;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.R;
 
@@ -17,6 +18,8 @@ public class SettingsActivity extends AppCompatActivity {
 
     private TextView tvRangeValue;
     private Slider sliderSearchRadius;
+    private SwitchMaterial switchBookingReminders;
+    private SwitchMaterial switchDarkMode;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -29,15 +32,27 @@ public class SettingsActivity extends AppCompatActivity {
 
         tvRangeValue = findViewById(R.id.tvRangeValue);
         sliderSearchRadius = findViewById(R.id.sliderSearchRadius);
+        switchBookingReminders = findViewById(R.id.switchBookingReminders);
+        switchDarkMode = findViewById(R.id.switchDarkMode);
 
         int savedRadiusKm = AppPreferences.getSearchRadiusKm(this);
         sliderSearchRadius.setValue(findIndexForRadius(savedRadiusKm));
         updateRangeLabel(savedRadiusKm);
+        switchBookingReminders.setChecked(AppPreferences.areBookingRemindersEnabled(this));
+        switchDarkMode.setChecked(AppPreferences.isDarkModeEnabled(this));
 
         sliderSearchRadius.addOnChangeListener((slider, value, fromUser) -> {
             int radiusKm = SEARCH_RADIUS_OPTIONS[(int) value];
             AppPreferences.setSearchRadiusKm(this, radiusKm);
             updateRangeLabel(radiusKm);
+        });
+
+        switchBookingReminders.setOnCheckedChangeListener((buttonView, isChecked) ->
+                AppPreferences.setBookingRemindersEnabled(this, isChecked));
+
+        switchDarkMode.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            AppPreferences.setDarkModeEnabled(this, isChecked);
+            AppPreferences.applyThemeMode(this);
         });
     }
 

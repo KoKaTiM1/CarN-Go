@@ -5,6 +5,7 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.AppPreferences;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Booking;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.sync.BookingStatus;
 
@@ -17,6 +18,11 @@ public final class ReminderScheduler {
 
     public static void scheduleRentalReminders(Context context, Booking booking) {
         if (context == null || booking == null || booking.getId() == null) {
+            return;
+        }
+
+        if (!AppPreferences.areBookingRemindersEnabled(context)) {
+            cancelRentalReminders(context, booking.getId());
             return;
         }
 
