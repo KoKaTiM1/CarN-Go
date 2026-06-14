@@ -4,13 +4,20 @@ import android.app.NotificationManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+
 import androidx.core.app.NotificationCompat;
-import com.yardenbental_danielcohen_shlomoedelstein.carn_go.R;
+
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.App;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.AppPreferences;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.R;
 
 public class ReminderReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
+        if (!AppPreferences.areBookingRemindersEnabled(context)) {
+            return;
+        }
+
         String carName = intent.getStringExtra("carName");
         String type = intent.getStringExtra("type"); // "START" or "END"
 

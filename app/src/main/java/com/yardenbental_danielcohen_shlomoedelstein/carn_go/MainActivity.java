@@ -3,6 +3,7 @@ package com.yardenbental_danielcohen_shlomoedelstein.carn_go;
 import static android.content.ContentValues.TAG;
 
 import android.Manifest;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
@@ -23,7 +24,6 @@ import androidx.navigation.ui.NavigationUI;
 import androidx.appcompat.widget.Toolbar;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.widget.Toast;
 
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
@@ -31,6 +31,9 @@ import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.firebase.FirestoreHelper;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.sync.BookingSyncScheduler;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.ui.AboutActivity;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.ui.SettingsActivity;
 
 
 public class MainActivity extends AppCompatActivity {
@@ -81,10 +84,10 @@ public class MainActivity extends AppCompatActivity {
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
         int id = item.getItemId();
         if (id == R.id.action_settings) {
-            Toast.makeText(this, "Settings clicked", Toast.LENGTH_SHORT).show();
+            startActivity(new Intent(this, SettingsActivity.class));
             return true;
         } else if (id == R.id.action_about) {
-            Toast.makeText(this, "About clicked", Toast.LENGTH_SHORT).show();
+            startActivity(new Intent(this, AboutActivity.class));
             return true;
         } else if (id == R.id.action_exit) {
             finish();
@@ -119,6 +122,7 @@ public class MainActivity extends AppCompatActivity {
                 if (task.isSuccessful()) {
                     Log.d("Auth", "signInAnonymously:success");
                     initializeFCM();
+                    BookingSyncScheduler.requestImmediateSync(MainActivity.this, "app_launch");
                 } else {
                     Exception e = task.getException();
                     Log.w("Auth", "signInAnonymously:failure", e);
@@ -127,11 +131,13 @@ public class MainActivity extends AppCompatActivity {
                     }
                     // Fallback to initializing FCM anyway (FirestoreHelper will use SharedPreferences ID)
                     initializeFCM();
+                    BookingSyncScheduler.requestImmediateSync(MainActivity.this, "app_launch_fallback");
                 }
             });
         } else {
             // Already signed in
             initializeFCM();
+            BookingSyncScheduler.requestImmediateSync(this, "app_launch_existing_user");
         }
     }
 

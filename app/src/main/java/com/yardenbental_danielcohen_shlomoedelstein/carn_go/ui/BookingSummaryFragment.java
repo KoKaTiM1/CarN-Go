@@ -41,10 +41,13 @@ import okhttp3.RequestBody;
 
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.notifications.ReminderReceiver;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.notifications.ReminderScheduler;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.R;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.firebase.FirestoreHelper;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Booking;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Car;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.sync.BookingStatus;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.sync.BookingSyncScheduler;
 import android.app.NotificationManager;
 import android.content.Context;
 import androidx.core.app.NotificationCompat;
@@ -149,7 +152,7 @@ public class BookingSummaryFragment extends Fragment {
                     for (QueryDocumentSnapshot doc : queryDocumentSnapshots) {
                         Booking b = doc.toObject(Booking.class);
                         // Ignore rejected bookings when calculating available slots
-                        if (!"REJECTED".equals(b.getStatus())) {
+                        if (BookingStatus.blocksAvailability(b.getStatus())) {
                             existingBookings.add(b);
                         }
                     }
@@ -169,7 +172,7 @@ public class BookingSummaryFragment extends Fragment {
                                 existingBookings.clear();
                                 for (QueryDocumentSnapshot doc : snapshots) {
                                     Booking b = doc.toObject(Booking.class);
-                                    if (!"REJECTED".equals(b.getStatus())) {
+                                    if (BookingStatus.blocksAvailability(b.getStatus())) {
                                         existingBookings.add(b);
                                     }
                                 }
@@ -308,7 +311,8 @@ public class BookingSummaryFragment extends Fragment {
             long newTimestamp = localCal.getTimeInMillis();
 
             if (isStart) {
-                if (newTimestamp < now) {
+                long pickerAlignedNow = now - (now % TimeUnit.MINUTES.toMillis(1));
+                if (newTimestamp < pickerAlignedNow) {
                     Toast.makeText(getContext(), "Start time cannot be in the past", Toast.LENGTH_SHORT).show();
                     return;
                 }
@@ -363,8 +367,7 @@ public class BookingSummaryFragment extends Fragment {
                     boolean hasOverlap = false;
                     for (com.google.firebase.firestore.QueryDocumentSnapshot doc : queryDocumentSnapshots) {
                         String status = doc.getString("status");
-                        // Only REJECTED bookings are ignored. PENDING and APPROVED still block the time.
-                        if ("REJECTED".equals(status)) continue;
+                        if (!BookingStatus.blocksAvailability(status)) continue;
 
                         Long existingStart = doc.getLong("startTime");
                         if (existingStart != null) {
@@ -391,7 +394,7 @@ public class BookingSummaryFragment extends Fragment {
                                 boolean hasOverlap = false;
                                 for (com.google.firebase.firestore.QueryDocumentSnapshot doc : snapshots) {
                                     String status = doc.getString("status");
-                                    if ("REJECTED".equals(status)) continue;
+                                    if (!BookingStatus.blocksAvailability(status)) continue;
 
                                     Long existingStart = doc.getLong("startTime");
                                     Long existingEnd = doc.getLong("endTime");
@@ -437,37 +440,26 @@ public class BookingSummaryFragment extends Fragment {
         bookingData.put("endTime", selectedEndTimestamp);
         bookingData.put("totalCost", totalPrice);
         bookingData.put("timestamp", System.currentTimeMillis());
-        bookingData.put("status", "PENDING");
+        bookingData.put("status", BookingStatus.PENDING);
 
         db.collection("bookings").add(bookingData)
                 .addOnSuccessListener(documentReference -> {
                     Toast.makeText(getContext(), "Booking Confirmed!", Toast.LENGTH_SHORT).show();
-                    
-                    // 1. Schedule Reminders (Start and End)
-                    AlarmManager alarmManager = (AlarmManager) getContext().getSystemService(Context.ALARM_SERVICE);
-                    
-                    // Start Reminder (30 mins before)
-                    long startReminderTime = selectedStartTimestamp - (30 * 60 * 1000);
-                    Intent startIntent = new Intent(getContext(), ReminderReceiver.class);
-                    startIntent.putExtra("carName", car.getName());
-                    startIntent.putExtra("type", "START");
-                    PendingIntent startPi = PendingIntent.getBroadcast(getContext(), (int)System.currentTimeMillis(), startIntent, PendingIntent.FLAG_IMMUTABLE);
-                    
-                    // End Reminder (30 mins before end)
-                    long endReminderTime = selectedEndTimestamp - (30 * 60 * 1000);
-                    Intent endIntent = new Intent(getContext(), ReminderReceiver.class);
-                    endIntent.putExtra("carName", car.getName());
-                    endIntent.putExtra("type", "END");
-                    PendingIntent endPi = PendingIntent.getBroadcast(getContext(), (int)System.currentTimeMillis() + 1, endIntent, PendingIntent.FLAG_IMMUTABLE);
 
-                    if (alarmManager != null) {
-                        if (startReminderTime > System.currentTimeMillis()) {
-                            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, startReminderTime, startPi);
-                        }
-                        if (endReminderTime > System.currentTimeMillis()) {
-                            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, endReminderTime, endPi);
-                        }
-                    }
+                    Booking createdBooking = new Booking(
+                            documentReference.getId(),
+                            car.getId(),
+                            userId,
+                            car.getOwnerId(),
+                            car.getName(),
+                            car.getImageUrl(),
+                            selectedStartTimestamp,
+                            selectedEndTimestamp,
+                            totalPrice,
+                            System.currentTimeMillis(),
+                            BookingStatus.PENDING
+                    );
+                    ReminderScheduler.cancelRentalReminders(requireContext(), createdBooking.getId());
 
                     // 2. Trigger local notification for the Renter (Added to bookings)
                     showLocalNotification(getContext().getApplicationContext(), "Booking Submitted", 
@@ -475,6 +467,7 @@ public class BookingSummaryFragment extends Fragment {
 
                     // 3. Trigger notification to the owner
                     notifyOwner(car);
+                    BookingSyncScheduler.requestImmediateSync(requireContext(), "booking_created");
                     
                     NavController navController = Navigation.findNavController(requireView());
                     // Pop everything in the Explore tab back to the car list

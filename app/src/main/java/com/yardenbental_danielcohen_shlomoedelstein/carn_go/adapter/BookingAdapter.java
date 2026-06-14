@@ -14,6 +14,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.R;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Booking;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.sync.BookingStatus;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -55,31 +56,35 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
         holder.tvCarName.setText(booking.getCarName());
         
         // Status display
-        String status = booking.getStatus() != null ? booking.getStatus() : "PENDING";
+        String status = BookingStatus.normalize(booking.getStatus());
         holder.tvStatus.setText(status);
-        if ("APPROVED".equals(status)) {
+        if (BookingStatus.APPROVED.equals(status) || BookingStatus.ACTIVE.equals(status)) {
             holder.tvStatus.setTextColor(holder.itemView.getContext().getColor(R.color.primary));
-        } else if ("REJECTED".equals(status)) {
+        } else if (BookingStatus.RETURN_PENDING.equals(status) || BookingStatus.REJECTED.equals(status)) {
             holder.tvStatus.setTextColor(holder.itemView.getContext().getColor(R.color.error));
         } else {
             holder.tvStatus.setTextColor(holder.itemView.getContext().getColor(R.color.secondary));
         }
 
         // Action buttons visibility: Only show if I am the owner and it is PENDING
-        if (currentUserId != null && currentUserId.equals(booking.getOwnerId()) && "PENDING".equals(status)) {
+        if (currentUserId != null && currentUserId.equals(booking.getOwnerId()) && BookingStatus.PENDING.equals(status)) {
             holder.layoutActions.setVisibility(View.VISIBLE);
             holder.btnApprove.setVisibility(View.VISIBLE);
             holder.btnReject.setVisibility(View.VISIBLE);
             holder.btnPickupPhoto.setVisibility(View.GONE);
             holder.btnFinish.setVisibility(View.GONE);
             holder.btnViewPhotos.setVisibility(View.GONE);
-        } else if (currentUserId != null && currentUserId.equals(booking.getUserId()) && "APPROVED".equals(status)) {
+        } else if (currentUserId != null
+                && currentUserId.equals(booking.getUserId())
+                && (BookingStatus.ACTIVE.equals(status) || BookingStatus.RETURN_PENDING.equals(status))) {
             holder.layoutActions.setVisibility(View.VISIBLE);
             holder.btnApprove.setVisibility(View.GONE);
             holder.btnReject.setVisibility(View.GONE);
-            
-            // Logic: If no pickup photo, show pickup button. If pickup photo exists, show finish button.
-            if (booking.getStartPhotoUrl() == null || booking.getStartPhotoUrl().isEmpty()) {
+
+            if (BookingStatus.RETURN_PENDING.equals(status)) {
+                holder.btnPickupPhoto.setVisibility(View.GONE);
+                holder.btnFinish.setVisibility(View.VISIBLE);
+            } else if (booking.getStartPhotoUrl() == null || booking.getStartPhotoUrl().isEmpty()) {
                 holder.btnPickupPhoto.setVisibility(View.VISIBLE);
                 holder.btnFinish.setVisibility(View.GONE);
             } else {
@@ -87,7 +92,7 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
                 holder.btnFinish.setVisibility(View.VISIBLE);
             }
             holder.btnViewPhotos.setVisibility(View.GONE);
-        } else if ("COMPLETED".equals(status)) {
+        } else if (BookingStatus.COMPLETED.equals(status)) {
             holder.layoutActions.setVisibility(View.VISIBLE);
             holder.btnApprove.setVisibility(View.GONE);
             holder.btnReject.setVisibility(View.GONE);
@@ -99,7 +104,7 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
         }
 
         // Make the entire card clickable to view photos if completed
-        if ("COMPLETED".equals(status)) {
+        if (BookingStatus.COMPLETED.equals(status)) {
             holder.itemView.setOnClickListener(v -> {
                 if (listener != null) listener.onViewPhotos(booking);
             });

@@ -1,14 +1,20 @@
 package com.yardenbental_danielcohen_shlomoedelstein.carn_go.ui;
 
+import android.Manifest;
 import android.app.Activity;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.location.Address;
+import android.location.Geocoder;
+import android.location.Location;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.MediaStore;
+import android.provider.Settings;
 import android.util.Base64;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -24,11 +30,15 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.Navigation;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.Priority;
 import com.google.android.material.datepicker.CalendarConstraints;
 import com.google.android.material.datepicker.DateValidatorPointForward;
 import com.google.android.material.datepicker.MaterialDatePicker;
@@ -56,19 +66,31 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Fragment that displays the cars owned or rented by the current user.
- */
 public class MyCarsFragment extends Fragment {
+
+    private static class LocationDraft {
+        String displayName;
+        Double latitude;
+        Double longitude;
+
+        LocationDraft(String displayName, Double latitude, Double longitude) {
+            this.displayName = displayName;
+            this.latitude = latitude;
+            this.longitude = longitude;
+        }
+    }
 
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     private ActivityResultLauncher<String> pickImageLauncher;
     private ActivityResultLauncher<Intent> cameraLauncher;
+    private ActivityResultLauncher<String[]> locationPermissionLauncher;
+    private FusedLocationProviderClient fusedLocationClient;
+    private Runnable pendingLocationAction;
     private RecyclerView rvMyCars;
     private CarAdapter adapter;
-    private List<Car> myCarsList = new ArrayList<>();
+    private final List<Car> myCarsList = new ArrayList<>();
     private View layoutEmpty;
     private View addCarBtn;
 
@@ -79,7 +101,8 @@ public class MyCarsFragment extends Fragment {
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Initialize the image picker launcher
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireContext());
+
         pickImageLauncher = registerForActivityResult(
                 new ActivityResultContracts.GetContent(),
                 uri -> {
@@ -89,16 +112,32 @@ public class MyCarsFragment extends Fragment {
                 }
         );
 
-        // Initialize the camera launcher
         cameraLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
                 result -> {
-                    if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
+                    if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null && result.getData().getExtras() != null) {
                         Bitmap photo = (Bitmap) result.getData().getExtras().get("data");
                         if (photo != null) {
                             showAddCarDialog(photo);
                         }
                     }
+                }
+        );
+
+        locationPermissionLauncher = registerForActivityResult(
+                new ActivityResultContracts.RequestMultiplePermissions(),
+                permissions -> {
+                    boolean granted = Boolean.TRUE.equals(permissions.get(Manifest.permission.ACCESS_FINE_LOCATION))
+                            || Boolean.TRUE.equals(permissions.get(Manifest.permission.ACCESS_COARSE_LOCATION));
+
+                    if (granted) {
+                        if (pendingLocationAction != null) {
+                            pendingLocationAction.run();
+                        }
+                    } else {
+                        showLocationPermissionSettingsDialog();
+                    }
+                    pendingLocationAction = null;
                 }
         );
     }
@@ -141,11 +180,9 @@ public class MyCarsFragment extends Fragment {
                         .setTitle(R.string.add_car_photo)
                         .setItems(options, (dialog, which) -> {
                             if (which == 0) {
-                                // Camera
                                 Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
                                 cameraLauncher.launch(takePictureIntent);
                             } else {
-                                // Gallery
                                 pickImageLauncher.launch("image/*");
                             }
                         })
@@ -171,6 +208,8 @@ public class MyCarsFragment extends Fragment {
                             String name = document.getString("name");
                             String type = document.getString("type");
                             String location = document.getString("location");
+                            Double latitude = document.getDouble("latitude");
+                            Double longitude = document.getDouble("longitude");
                             Double price = document.getDouble("pricePerHour");
                             Double rating = document.getDouble("rating");
                             String imageUrl = document.getString("imageUrl");
@@ -187,13 +226,15 @@ public class MyCarsFragment extends Fragment {
                                     name != null ? name : getString(R.string.unknown),
                                     type != null ? type : getString(R.string.standard),
                                     location != null ? location : getString(R.string.unknown),
+                                    latitude,
+                                    longitude,
                                     price != null ? price : 0.0,
                                     rating != null ? rating : 5.0,
                                     imageUrl,
                                     transmission != null ? transmission : getString(R.string.auto),
                                     seats,
                                     fuelType != null ? fuelType : getString(R.string.gas),
-                                    "", // tag
+                                    "",
                                     ownerId != null ? ownerId : "",
                                     availableFrom != null ? availableFrom : 0,
                                     availableTo != null ? availableTo : 0
@@ -212,9 +253,7 @@ public class MyCarsFragment extends Fragment {
                     }
                     adapter.notifyDataSetChanged();
                 })
-                .addOnFailureListener(e -> {
-                    Toast.makeText(getContext(), R.string.failed_load_cars, Toast.LENGTH_SHORT).show();
-                });
+                .addOnFailureListener(e -> Toast.makeText(getContext(), R.string.failed_load_cars, Toast.LENGTH_SHORT).show());
     }
 
     private void showEditCarDialog(Car car) {
@@ -226,9 +265,11 @@ public class MyCarsFragment extends Fragment {
         EditText etTransmission = dialogView.findViewById(R.id.etTransmission);
         EditText etSeats = dialogView.findViewById(R.id.etSeats);
         EditText etFuelType = dialogView.findViewById(R.id.etFuelType);
+        Button btnUseCurrentLocation = dialogView.findViewById(R.id.btnUseCurrentLocation);
         Button btnPickStart = dialogView.findViewById(R.id.btnPickStart);
         Button btnPickEnd = dialogView.findViewById(R.id.btnPickEnd);
         TextView tvAvailability = dialogView.findViewById(R.id.tvSelectedAvailability);
+        LocationDraft locationDraft = new LocationDraft(car.getLocation(), car.getLatitude(), car.getLongitude());
 
         etName.setText(car.getName());
         etPrice.setText(String.valueOf(car.getPricePerHour()));
@@ -242,6 +283,7 @@ public class MyCarsFragment extends Fragment {
         selectedEndTimestamp = car.getAvailableTo();
         updateAvailabilityText(tvAvailability);
 
+        btnUseCurrentLocation.setOnClickListener(v -> fillLocationFromGps(etLocation, locationDraft));
         btnPickStart.setOnClickListener(v -> pickDateTime(true, tvAvailability));
         btnPickEnd.setOnClickListener(v -> pickDateTime(false, tvAvailability));
 
@@ -257,10 +299,16 @@ public class MyCarsFragment extends Fragment {
                     String seatsStr = etSeats.getText().toString().trim();
                     String fuelType = etFuelType.getText().toString().trim();
 
-                    if (!name.isEmpty() && !priceStr.isEmpty() && selectedStartTimestamp != 0 && selectedEndTimestamp != 0) {
-                        double price = Double.parseDouble(priceStr);
-                        int seats = seatsStr.isEmpty() ? 5 : Integer.parseInt(seatsStr);
-                        updateCarData(car.getId(), name, price, location, type, transmission, seats, fuelType, selectedStartTimestamp, selectedEndTimestamp);
+                    if (!name.isEmpty() && !priceStr.isEmpty() && !location.isEmpty() && selectedStartTimestamp != 0 && selectedEndTimestamp != 0) {
+                        try {
+                            double price = Double.parseDouble(priceStr);
+                            int seats = seatsStr.isEmpty() ? 5 : Integer.parseInt(seatsStr);
+                            Double latitude = location.equals(locationDraft.displayName) ? locationDraft.latitude : null;
+                            Double longitude = location.equals(locationDraft.displayName) ? locationDraft.longitude : null;
+                            updateCarData(car.getId(), name, price, location, latitude, longitude, type, transmission, seats, fuelType, selectedStartTimestamp, selectedEndTimestamp);
+                        } catch (NumberFormatException e) {
+                            Toast.makeText(getContext(), R.string.error_invalid_input, Toast.LENGTH_SHORT).show();
+                        }
                     } else {
                         Toast.makeText(getContext(), R.string.error_required_fields, Toast.LENGTH_SHORT).show();
                     }
@@ -269,12 +317,14 @@ public class MyCarsFragment extends Fragment {
                 .show();
     }
 
-    private void updateCarData(String carId, String name, double price, String location, String type, String transmission, int seats, String fuelType, long start, long end) {
+    private void updateCarData(String carId, String name, double price, String location, Double latitude, Double longitude, String type, String transmission, int seats, String fuelType, long start, long end) {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
         Map<String, Object> updates = new HashMap<>();
         updates.put("name", name);
         updates.put("pricePerHour", price);
         updates.put("location", location);
+        updates.put("latitude", latitude);
+        updates.put("longitude", longitude);
         updates.put("type", type);
         updates.put("transmission", transmission);
         updates.put("seats", seats);
@@ -295,15 +345,13 @@ public class MyCarsFragment extends Fragment {
         new AlertDialog.Builder(requireContext())
                 .setTitle(R.string.delete_car)
                 .setMessage(R.string.delete_confirmation)
-                .setPositiveButton(R.string.delete, (dialog, which) -> {
-                    FirebaseFirestore.getInstance().collection("cars").document(car.getId())
-                            .delete()
-                            .addOnSuccessListener(aVoid -> {
-                                Toast.makeText(getContext(), R.string.car_deleted, Toast.LENGTH_SHORT).show();
-                                fetchMyCars();
-                            })
-                            .addOnFailureListener(e -> Toast.makeText(getContext(), getString(R.string.error_deleting, e.getMessage()), Toast.LENGTH_SHORT).show());
-                })
+                .setPositiveButton(R.string.delete, (dialog, which) -> FirebaseFirestore.getInstance().collection("cars").document(car.getId())
+                        .delete()
+                        .addOnSuccessListener(aVoid -> {
+                            Toast.makeText(getContext(), R.string.car_deleted, Toast.LENGTH_SHORT).show();
+                            fetchMyCars();
+                        })
+                        .addOnFailureListener(e -> Toast.makeText(getContext(), getString(R.string.error_deleting, e.getMessage()), Toast.LENGTH_SHORT).show()))
                 .setNegativeButton(R.string.cancel, null)
                 .show();
     }
@@ -317,13 +365,16 @@ public class MyCarsFragment extends Fragment {
         EditText etTransmission = dialogView.findViewById(R.id.etTransmission);
         EditText etSeats = dialogView.findViewById(R.id.etSeats);
         EditText etFuelType = dialogView.findViewById(R.id.etFuelType);
+        Button btnUseCurrentLocation = dialogView.findViewById(R.id.btnUseCurrentLocation);
         Button btnPickStart = dialogView.findViewById(R.id.btnPickStart);
         Button btnPickEnd = dialogView.findViewById(R.id.btnPickEnd);
         TextView tvAvailability = dialogView.findViewById(R.id.tvSelectedAvailability);
+        LocationDraft locationDraft = new LocationDraft(null, null, null);
 
         selectedStartTimestamp = 0;
         selectedEndTimestamp = 0;
 
+        btnUseCurrentLocation.setOnClickListener(v -> fillLocationFromGps(etLocation, locationDraft));
         btnPickStart.setOnClickListener(v -> pickDateTime(true, tvAvailability));
         btnPickEnd.setOnClickListener(v -> pickDateTime(false, tvAvailability));
 
@@ -339,11 +390,13 @@ public class MyCarsFragment extends Fragment {
                     String seatsStr = etSeats.getText().toString().trim();
                     String fuelType = etFuelType.getText().toString().trim();
 
-                    if (!name.isEmpty() && !priceStr.isEmpty() && selectedStartTimestamp != 0 && selectedEndTimestamp != 0) {
+                    if (!name.isEmpty() && !priceStr.isEmpty() && !location.isEmpty() && selectedStartTimestamp != 0 && selectedEndTimestamp != 0) {
                         try {
                             double price = Double.parseDouble(priceStr);
                             int seats = seatsStr.isEmpty() ? 5 : Integer.parseInt(seatsStr);
-                            uploadCarData(name, price, location, type, transmission, seats, fuelType, imageSource, selectedStartTimestamp, selectedEndTimestamp);
+                            Double latitude = location.equals(locationDraft.displayName) ? locationDraft.latitude : null;
+                            Double longitude = location.equals(locationDraft.displayName) ? locationDraft.longitude : null;
+                            uploadCarData(name, price, location, latitude, longitude, type, transmission, seats, fuelType, imageSource, selectedStartTimestamp, selectedEndTimestamp);
                         } catch (NumberFormatException e) {
                             Toast.makeText(getContext(), R.string.error_invalid_input, Toast.LENGTH_SHORT).show();
                         }
@@ -367,7 +420,7 @@ public class MyCarsFragment extends Fragment {
         constraintsBuilder.setValidator(DateValidatorPointForward.from(startOfTodayUtc));
 
         long selection = isStart ? (selectedStartTimestamp != 0 ? selectedStartTimestamp : System.currentTimeMillis())
-                                : (selectedEndTimestamp != 0 ? selectedEndTimestamp : (selectedStartTimestamp != 0 ? selectedStartTimestamp + TimeUnit.HOURS.toMillis(1) : System.currentTimeMillis() + TimeUnit.HOURS.toMillis(1)));
+                : (selectedEndTimestamp != 0 ? selectedEndTimestamp : (selectedStartTimestamp != 0 ? selectedStartTimestamp + TimeUnit.HOURS.toMillis(1) : System.currentTimeMillis() + TimeUnit.HOURS.toMillis(1)));
 
         MaterialDatePicker<Long> datePicker = MaterialDatePicker.Builder.datePicker()
                 .setTitleText(isStart ? R.string.select_start_date : R.string.select_end_date)
@@ -433,7 +486,7 @@ public class MyCarsFragment extends Fragment {
         tvDisplay.setText(getString(R.string.available_from_to, startStr, endStr));
     }
 
-    private void uploadCarData(String carName, double price, String location, String type, String transmission, int seats, String fuelType, Object imageSource, long start, long end) {
+    private void uploadCarData(String carName, double price, String location, Double latitude, Double longitude, String type, String transmission, int seats, String fuelType, Object imageSource, long start, long end) {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
         Toast.makeText(getContext(), R.string.processing_listing, Toast.LENGTH_SHORT).show();
 
@@ -452,20 +505,19 @@ public class MyCarsFragment extends Fragment {
                     return;
                 }
 
-                // Resize & Compress
                 Bitmap scaledBitmap = Bitmap.createScaledBitmap(bitmap, 640, 480, true);
                 ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
                 scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 70, outputStream);
 
-                // Convert to Base64 String
                 byte[] byteArray = outputStream.toByteArray();
                 String encodedImage = Base64.encodeToString(byteArray, Base64.DEFAULT);
 
-                // Save to Firestore
                 Map<String, Object> carData = new HashMap<>();
                 carData.put("name", carName);
                 carData.put("pricePerHour", price);
                 carData.put("location", location);
+                carData.put("latitude", latitude);
+                carData.put("longitude", longitude);
                 carData.put("type", type);
                 carData.put("imageUrl", encodedImage);
                 carData.put("ownerId", FirestoreHelper.getCurrentUserId(getContext()));
@@ -477,20 +529,141 @@ public class MyCarsFragment extends Fragment {
                 carData.put("availableTo", end);
 
                 db.collection("cars").add(carData)
-                        .addOnSuccessListener(documentReference -> {
-                            mainHandler.post(() -> {
-                                Toast.makeText(getContext(), R.string.listing_added, Toast.LENGTH_SHORT).show();
-                                fetchMyCars();
-                            });
-                        })
-                        .addOnFailureListener(e -> {
-                            mainHandler.post(() -> Toast.makeText(getContext(), getString(R.string.firestore_error, e.getMessage()), Toast.LENGTH_SHORT).show());
-                        });
+                        .addOnSuccessListener(documentReference -> mainHandler.post(() -> {
+                            Toast.makeText(getContext(), R.string.listing_added, Toast.LENGTH_SHORT).show();
+                            fetchMyCars();
+                        }))
+                        .addOnFailureListener(e -> mainHandler.post(() -> Toast.makeText(getContext(), getString(R.string.firestore_error, e.getMessage()), Toast.LENGTH_SHORT).show()));
 
             } catch (Exception e) {
                 Log.e("MyCarsFragment", "Upload failed", e);
                 mainHandler.post(() -> Toast.makeText(getContext(), R.string.error_image_processing, Toast.LENGTH_SHORT).show());
             }
         });
+    }
+
+    private void fillLocationFromGps(EditText locationField, LocationDraft locationDraft) {
+        ensureLocationPermission(() -> requestCurrentLocation(location -> reverseGeocode(location, resolvedLocation -> {
+            locationDraft.displayName = resolvedLocation;
+            locationDraft.latitude = location.getLatitude();
+            locationDraft.longitude = location.getLongitude();
+            locationField.setText(resolvedLocation);
+            Toast.makeText(getContext(), R.string.location_detected, Toast.LENGTH_SHORT).show();
+        })));
+    }
+
+    private void ensureLocationPermission(Runnable onGranted) {
+        if (hasLocationPermission()) {
+            onGranted.run();
+            return;
+        }
+
+        pendingLocationAction = onGranted;
+        if (shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_FINE_LOCATION)
+                || shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_COARSE_LOCATION)) {
+            new AlertDialog.Builder(requireContext())
+                    .setTitle(R.string.location_permission_title)
+                    .setMessage(R.string.location_permission_owner_message)
+                    .setPositiveButton(R.string.allow_location, (dialog, which) -> locationPermissionLauncher.launch(new String[]{
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.ACCESS_COARSE_LOCATION
+                    }))
+                    .setNegativeButton(R.string.cancel, null)
+                    .show();
+        } else {
+            locationPermissionLauncher.launch(new String[]{
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+            });
+        }
+    }
+
+    private boolean hasLocationPermission() {
+        return ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                || ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private void requestCurrentLocation(LocationCallback callback) {
+        if (!hasLocationPermission()) {
+            return;
+        }
+
+        fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
+                .addOnSuccessListener(location -> {
+                    if (location != null) {
+                        callback.onLocationResolved(location);
+                    } else {
+                        fusedLocationClient.getLastLocation()
+                                .addOnSuccessListener(lastLocation -> {
+                                    if (lastLocation != null) {
+                                        callback.onLocationResolved(lastLocation);
+                                    } else {
+                                        Toast.makeText(getContext(), R.string.location_unavailable, Toast.LENGTH_SHORT).show();
+                                    }
+                                })
+                                .addOnFailureListener(e -> Toast.makeText(getContext(), R.string.location_unavailable, Toast.LENGTH_SHORT).show());
+                    }
+                })
+                .addOnFailureListener(e -> Toast.makeText(getContext(), R.string.location_unavailable, Toast.LENGTH_SHORT).show());
+    }
+
+    private void reverseGeocode(Location location, AddressCallback callback) {
+        executorService.execute(() -> {
+            String resolvedLocation = getString(R.string.current_location_label);
+            try {
+                if (Geocoder.isPresent()) {
+                    Geocoder geocoder = new Geocoder(requireContext(), Locale.getDefault());
+                    List<Address> addresses = geocoder.getFromLocation(location.getLatitude(), location.getLongitude(), 1);
+                    if (addresses != null && !addresses.isEmpty()) {
+                        resolvedLocation = formatAddress(addresses.get(0));
+                    }
+                }
+            } catch (Exception e) {
+                Log.w("MyCarsFragment", "Failed to reverse geocode location", e);
+            }
+
+            String finalResolvedLocation = resolvedLocation;
+            mainHandler.post(() -> callback.onAddressResolved(finalResolvedLocation));
+        });
+    }
+
+    private String formatAddress(Address address) {
+        List<String> parts = new ArrayList<>();
+        if (address.getThoroughfare() != null && !address.getThoroughfare().isEmpty()) {
+            parts.add(address.getThoroughfare());
+        }
+        if (address.getSubLocality() != null && !address.getSubLocality().isEmpty()) {
+            parts.add(address.getSubLocality());
+        } else if (address.getLocality() != null && !address.getLocality().isEmpty()) {
+            parts.add(address.getLocality());
+        }
+        if (parts.isEmpty() && address.getAdminArea() != null && !address.getAdminArea().isEmpty()) {
+            parts.add(address.getAdminArea());
+        }
+        if (parts.isEmpty()) {
+            return getString(R.string.current_location_label);
+        }
+        return String.join(", ", parts);
+    }
+
+    private void showLocationPermissionSettingsDialog() {
+        new AlertDialog.Builder(requireContext())
+                .setTitle(R.string.location_permission_title)
+                .setMessage(R.string.location_permission_settings_message)
+                .setPositiveButton(R.string.open_settings, (dialog, which) -> {
+                    Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                    intent.setData(Uri.fromParts("package", requireContext().getPackageName(), null));
+                    startActivity(intent);
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+    }
+
+    private interface LocationCallback {
+        void onLocationResolved(Location location);
+    }
+
+    private interface AddressCallback {
+        void onAddressResolved(String address);
     }
 }
