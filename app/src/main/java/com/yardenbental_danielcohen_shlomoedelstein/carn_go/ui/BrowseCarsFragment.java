@@ -16,6 +16,7 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ArrayAdapter;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -33,9 +34,7 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.Priority;
-import com.google.android.material.button.MaterialButton;
-import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.QueryDocumentSnapshot;
+import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.AppPreferences;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.R;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.adapter.CarAdapter;
@@ -63,10 +62,11 @@ public class BrowseCarsFragment extends Fragment {
     private ActivityResultLauncher<String[]> locationPermissionLauncher;
     private Location currentLocation;
     private String activeTypeFilter;
-    private MaterialButton btnAllTypes;
-    private MaterialButton btnEconomy;
-    private MaterialButton btnCompact;
-    private MaterialButton btnHybrid;
+    private String activeTransmissionFilter;
+    private String activeFuelTypeFilter;
+    private MaterialAutoCompleteTextView dropdownTypeFilter;
+    private MaterialAutoCompleteTextView dropdownTransmissionFilter;
+    private MaterialAutoCompleteTextView dropdownFuelFilter;
     private boolean isLoadingCars = false;
     private boolean pendingReload = false;
     private long lastLoadStartedAt = 0L;
@@ -121,16 +121,10 @@ public class BrowseCarsFragment extends Fragment {
         });
         rvCars.setAdapter(adapter);
 
-        btnAllTypes = view.findViewById(R.id.btnAllTypes);
-        btnEconomy = view.findViewById(R.id.btnEconomy);
-        btnCompact = view.findViewById(R.id.btnCompact);
-        btnHybrid = view.findViewById(R.id.btnHybrid);
-
-        btnAllTypes.setOnClickListener(v -> setTypeFilter(null));
-        btnEconomy.setOnClickListener(v -> setTypeFilter(getString(R.string.economy)));
-        btnCompact.setOnClickListener(v -> setTypeFilter(getString(R.string.compact)));
-        btnHybrid.setOnClickListener(v -> setTypeFilter(getString(R.string.hybrid)));
-        updateTypeButtons();
+        dropdownTypeFilter = view.findViewById(R.id.dropdownTypeFilter);
+        dropdownTransmissionFilter = view.findViewById(R.id.dropdownTransmissionFilter);
+        dropdownFuelFilter = view.findViewById(R.id.dropdownFuelFilter);
+        setupFilterDropdowns();
 
         return view;
     }
@@ -161,19 +155,17 @@ public class BrowseCarsFragment extends Fragment {
 
     private void setTypeFilter(@Nullable String typeFilter) {
         activeTypeFilter = typeFilter;
-        updateTypeButtons();
         applyFiltersAndSort();
     }
 
-    private void updateTypeButtons() {
-        highlightButton(btnAllTypes, activeTypeFilter == null);
-        highlightButton(btnEconomy, getString(R.string.economy).equalsIgnoreCase(activeTypeFilter));
-        highlightButton(btnCompact, getString(R.string.compact).equalsIgnoreCase(activeTypeFilter));
-        highlightButton(btnHybrid, getString(R.string.hybrid).equalsIgnoreCase(activeTypeFilter));
+    private void setTransmissionFilter(@Nullable String transmissionFilter) {
+        activeTransmissionFilter = transmissionFilter;
+        applyFiltersAndSort();
     }
 
-    private void highlightButton(MaterialButton button, boolean selected) {
-        button.setAlpha(selected ? 1f : 0.6f);
+    private void setFuelTypeFilter(@Nullable String fuelTypeFilter) {
+        activeFuelTypeFilter = fuelTypeFilter;
+        applyFiltersAndSort();
     }
 
     private void startPeriodicRefresh() {
@@ -304,7 +296,50 @@ public class BrowseCarsFragment extends Fragment {
     }
 
     private boolean matchesTypeFilter(Car car) {
-        return CarDiscoveryHelper.matchesTypeFilter(car, activeTypeFilter);
+        return CarDiscoveryHelper.matchesTypeFilter(car, activeTypeFilter)
+                && CarDiscoveryHelper.matchesTransmissionFilter(car, activeTransmissionFilter)
+                && CarDiscoveryHelper.matchesFuelTypeFilter(car, activeFuelTypeFilter);
+    }
+
+    private void setupFilterDropdowns() {
+        dropdownTypeFilter.setAdapter(new ArrayAdapter<>(requireContext(), android.R.layout.simple_list_item_1, getResources().getStringArray(R.array.filter_all_type_options)));
+        dropdownTransmissionFilter.setAdapter(new ArrayAdapter<>(requireContext(), android.R.layout.simple_list_item_1, getResources().getStringArray(R.array.filter_all_transmission_options)));
+        dropdownFuelFilter.setAdapter(new ArrayAdapter<>(requireContext(), android.R.layout.simple_list_item_1, getResources().getStringArray(R.array.filter_all_fuel_options)));
+
+        setupDropdownField(dropdownTypeFilter);
+        setupDropdownField(dropdownTransmissionFilter);
+        setupDropdownField(dropdownFuelFilter);
+
+        dropdownTypeFilter.setText(getString(R.string.filter_all_types), false);
+        dropdownTransmissionFilter.setText(getString(R.string.filter_all_transmissions), false);
+        dropdownFuelFilter.setText(getString(R.string.filter_all_fuel_types), false);
+
+        dropdownTypeFilter.setOnItemClickListener((parent, view, position, id) -> {
+            String selected = parent.getItemAtPosition(position).toString();
+            setTypeFilter(isAllSelection(selected, getString(R.string.filter_all_types)) ? null : selected);
+        });
+        dropdownTransmissionFilter.setOnItemClickListener((parent, view, position, id) -> {
+            String selected = parent.getItemAtPosition(position).toString();
+            setTransmissionFilter(isAllSelection(selected, getString(R.string.filter_all_transmissions)) ? null : selected);
+        });
+        dropdownFuelFilter.setOnItemClickListener((parent, view, position, id) -> {
+            String selected = parent.getItemAtPosition(position).toString();
+            setFuelTypeFilter(isAllSelection(selected, getString(R.string.filter_all_fuel_types)) ? null : selected);
+        });
+    }
+
+    private boolean isAllSelection(String value, String allLabel) {
+        return value.equalsIgnoreCase(allLabel);
+    }
+
+    private void setupDropdownField(MaterialAutoCompleteTextView field) {
+        field.setKeyListener(null);
+        field.setOnClickListener(v -> field.showDropDown());
+        field.setOnFocusChangeListener((v, hasFocus) -> {
+            if (hasFocus) {
+                field.showDropDown();
+            }
+        });
     }
 
     private void finishLoading() {

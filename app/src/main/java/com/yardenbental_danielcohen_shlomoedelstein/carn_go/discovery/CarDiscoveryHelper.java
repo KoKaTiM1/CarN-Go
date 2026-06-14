@@ -142,7 +142,58 @@ public final class CarDiscoveryHelper {
         if (activeTypeFilter == null || activeTypeFilter.isEmpty()) {
             return true;
         }
-        String carType = car.getType();
-        return carType != null && carType.toLowerCase(Locale.ROOT).contains(activeTypeFilter.toLowerCase(Locale.ROOT));
+        return normalizeCarType(car.getType()).equalsIgnoreCase(normalizeCarType(activeTypeFilter));
+    }
+
+    public static boolean matchesTransmissionFilter(@NonNull Car car, @Nullable String transmissionFilter) {
+        if (transmissionFilter == null || transmissionFilter.isEmpty()) {
+            return true;
+        }
+        return normalizeTransmission(car.getTransmission()).equalsIgnoreCase(normalizeTransmission(transmissionFilter));
+    }
+
+    public static boolean matchesFuelTypeFilter(@NonNull Car car, @Nullable String fuelTypeFilter) {
+        if (fuelTypeFilter == null || fuelTypeFilter.isEmpty()) {
+            return true;
+        }
+        return normalizeFuelType(car.getFuelType()).equalsIgnoreCase(normalizeFuelType(fuelTypeFilter));
+    }
+
+    @NonNull
+    public static String normalizeCarType(@Nullable String value) {
+        if (value == null) {
+            return "";
+        }
+        String normalized = value.trim().toLowerCase(Locale.ROOT);
+        if (normalized.contains("economy")) return "economy";
+        if (normalized.contains("compact")) return "compact";
+        if (normalized.contains("sedan")) return "sedan";
+        if (normalized.contains("suv")) return "suv";
+        if (normalized.contains("hatch")) return "hatchback";
+        if (normalized.contains("hybrid")) return "hybrid";
+        if (normalized.contains("other")) return "other";
+        return normalized;
+    }
+
+    @NonNull
+    public static String normalizeTransmission(@Nullable String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.trim().equalsIgnoreCase("manual") ? "manual" : "auto";
+    }
+
+    @NonNull
+    public static String normalizeFuelType(@Nullable String value) {
+        if (value == null) {
+            return "";
+        }
+        String normalized = value.trim().toLowerCase(Locale.ROOT);
+        if (normalized.contains("electric")) return "electric";
+        if (normalized.contains("diesel")) return "diesel";
+        if (normalized.contains("hybrid")) return "hybrid";
+        if (normalized.contains("other")) return "other";
+        if (normalized.contains("gas")) return "gasoline";
+        return normalized;
     }
 }

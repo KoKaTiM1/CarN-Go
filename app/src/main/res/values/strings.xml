@@ -10,6 +10,12 @@
     <string name="available_nearby">Available Nearby</string>
     <string name="nearby_subtitle">Perfect for school, work, or errands</string>
     <string name="filter">Filter</string>
+    <string name="filter_car_type">Car type</string>
+    <string name="filter_transmission">Transmission</string>
+    <string name="filter_fuel_type">Fuel type</string>
+    <string name="filter_all_types">Any</string>
+    <string name="filter_all_transmissions">Any</string>
+    <string name="filter_all_fuel_types">Any</string>
     <string name="price_per_hour">$%1$d / hour</string>
     <string name="seats_count">%1$d Seats</string>
     <string name="no_cars_yet">No cars yet</string>

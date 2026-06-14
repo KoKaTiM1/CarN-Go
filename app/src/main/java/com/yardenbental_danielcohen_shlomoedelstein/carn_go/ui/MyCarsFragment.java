@@ -20,6 +20,7 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
@@ -42,6 +43,7 @@ import com.google.android.gms.location.Priority;
 import com.google.android.material.datepicker.CalendarConstraints;
 import com.google.android.material.datepicker.DateValidatorPointForward;
 import com.google.android.material.datepicker.MaterialDatePicker;
+import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.timepicker.MaterialTimePicker;
 import com.google.android.material.timepicker.TimeFormat;
@@ -262,23 +264,24 @@ public class MyCarsFragment extends Fragment {
         TextInputEditText etName = dialogView.findViewById(R.id.etCarName);
         TextInputEditText etPrice = dialogView.findViewById(R.id.etPrice);
         TextInputEditText etLocation = dialogView.findViewById(R.id.etLocation);
-        TextInputEditText etType = dialogView.findViewById(R.id.etType);
-        TextInputEditText etTransmission = dialogView.findViewById(R.id.etTransmission);
+        MaterialAutoCompleteTextView etType = dialogView.findViewById(R.id.etType);
+        MaterialAutoCompleteTextView etTransmission = dialogView.findViewById(R.id.etTransmission);
         TextInputEditText etSeats = dialogView.findViewById(R.id.etSeats);
-        TextInputEditText etFuelType = dialogView.findViewById(R.id.etFuelType);
+        MaterialAutoCompleteTextView etFuelType = dialogView.findViewById(R.id.etFuelType);
         Button btnUseCurrentLocation = dialogView.findViewById(R.id.btnUseCurrentLocation);
         Button btnPickStart = dialogView.findViewById(R.id.btnPickStart);
         Button btnPickEnd = dialogView.findViewById(R.id.btnPickEnd);
         TextView tvAvailability = dialogView.findViewById(R.id.tvSelectedAvailability);
         LocationDraft locationDraft = new LocationDraft(car.getLocation(), car.getLatitude(), car.getLongitude());
 
+        setupCarChoiceDropdowns(etType, etTransmission, etFuelType);
         etName.setText(car.getName());
         etPrice.setText(String.valueOf(car.getPricePerHour()));
         etLocation.setText(car.getLocation());
-        etType.setText(car.getType());
-        etTransmission.setText(car.getTransmission());
+        etType.setText(normalizeCarType(car.getType()), false);
+        etTransmission.setText(normalizeTransmission(car.getTransmission()), false);
         etSeats.setText(String.valueOf(car.getSeats()));
-        etFuelType.setText(car.getFuelType());
+        etFuelType.setText(normalizeFuelType(car.getFuelType()), false);
 
         selectedStartTimestamp = car.getAvailableFrom();
         selectedEndTimestamp = car.getAvailableTo();
@@ -356,16 +359,20 @@ public class MyCarsFragment extends Fragment {
         TextInputEditText etName = dialogView.findViewById(R.id.etCarName);
         TextInputEditText etPrice = dialogView.findViewById(R.id.etPrice);
         TextInputEditText etLocation = dialogView.findViewById(R.id.etLocation);
-        TextInputEditText etType = dialogView.findViewById(R.id.etType);
-        TextInputEditText etTransmission = dialogView.findViewById(R.id.etTransmission);
+        MaterialAutoCompleteTextView etType = dialogView.findViewById(R.id.etType);
+        MaterialAutoCompleteTextView etTransmission = dialogView.findViewById(R.id.etTransmission);
         TextInputEditText etSeats = dialogView.findViewById(R.id.etSeats);
-        TextInputEditText etFuelType = dialogView.findViewById(R.id.etFuelType);
+        MaterialAutoCompleteTextView etFuelType = dialogView.findViewById(R.id.etFuelType);
         Button btnUseCurrentLocation = dialogView.findViewById(R.id.btnUseCurrentLocation);
         Button btnPickStart = dialogView.findViewById(R.id.btnPickStart);
         Button btnPickEnd = dialogView.findViewById(R.id.btnPickEnd);
         TextView tvAvailability = dialogView.findViewById(R.id.tvSelectedAvailability);
         LocationDraft locationDraft = new LocationDraft(null, null, null);
 
+        setupCarChoiceDropdowns(etType, etTransmission, etFuelType);
+        etType.setText(normalizeCarType(null), false);
+        etTransmission.setText(normalizeTransmission(null), false);
+        etFuelType.setText(normalizeFuelType(null), false);
         selectedStartTimestamp = 0;
         selectedEndTimestamp = 0;
 
@@ -518,10 +525,10 @@ public class MyCarsFragment extends Fragment {
     private CarFormData buildCarFormData(TextInputEditText etName,
                                          TextInputEditText etPrice,
                                          TextInputEditText etLocation,
-                                         TextInputEditText etType,
-                                         TextInputEditText etTransmission,
+                                         MaterialAutoCompleteTextView etType,
+                                         MaterialAutoCompleteTextView etTransmission,
                                          TextInputEditText etSeats,
-                                         TextInputEditText etFuelType) {
+                                         MaterialAutoCompleteTextView etFuelType) {
         String name = safeText(etName);
         String priceStr = safeText(etPrice);
         String location = safeText(etLocation);
@@ -545,6 +552,65 @@ public class MyCarsFragment extends Fragment {
         }
     }
 
+    private void setupCarChoiceDropdowns(MaterialAutoCompleteTextView typeField,
+                                         MaterialAutoCompleteTextView transmissionField,
+                                         MaterialAutoCompleteTextView fuelTypeField) {
+        typeField.setAdapter(new ArrayAdapter<>(requireContext(), android.R.layout.simple_list_item_1, getResources().getStringArray(R.array.car_type_options)));
+        transmissionField.setAdapter(new ArrayAdapter<>(requireContext(), android.R.layout.simple_list_item_1, getResources().getStringArray(R.array.transmission_options)));
+        fuelTypeField.setAdapter(new ArrayAdapter<>(requireContext(), android.R.layout.simple_list_item_1, getResources().getStringArray(R.array.fuel_type_options)));
+
+        setupDropdownField(typeField);
+        setupDropdownField(transmissionField);
+        setupDropdownField(fuelTypeField);
+    }
+
+    private void setupDropdownField(MaterialAutoCompleteTextView field) {
+        field.setKeyListener(null);
+        field.setOnClickListener(v -> field.showDropDown());
+        field.setOnFocusChangeListener((v, hasFocus) -> {
+            if (hasFocus) {
+                field.showDropDown();
+            }
+        });
+    }
+
+    @NonNull
+    private String normalizeCarType(@Nullable String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return getResources().getStringArray(R.array.car_type_options)[0];
+        }
+        String normalized = value.trim().toLowerCase(Locale.ROOT);
+        if (normalized.contains("economy")) return getString(R.string.economy);
+        if (normalized.contains("compact")) return getString(R.string.compact);
+        if (normalized.contains("sedan")) return "Sedan";
+        if (normalized.contains("suv")) return "SUV";
+        if (normalized.contains("hatch")) return "Hatchback";
+        if (normalized.contains("hybrid")) return getString(R.string.hybrid);
+        return "Other";
+    }
+
+    @NonNull
+    private String normalizeTransmission(@Nullable String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return getString(R.string.auto);
+        }
+        return value.trim().equalsIgnoreCase("manual") ? "Manual" : getString(R.string.auto);
+    }
+
+    @NonNull
+    private String normalizeFuelType(@Nullable String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return "Gasoline";
+        }
+        String normalized = value.trim().toLowerCase(Locale.ROOT);
+        if (normalized.contains("electric")) return "Electric";
+        if (normalized.contains("diesel")) return "Diesel";
+        if (normalized.contains("hybrid")) return getString(R.string.hybrid);
+        if (normalized.contains("other")) return "Other";
+        if (normalized.contains("gas")) return "Gasoline";
+        return "Other";
+    }
+
     private boolean validateAvailabilitySelection() {
         if (selectedStartTimestamp == 0 || selectedEndTimestamp == 0) {
             Toast.makeText(getContext(), R.string.error_required_fields, Toast.LENGTH_SHORT).show();
@@ -562,7 +628,7 @@ public class MyCarsFragment extends Fragment {
     }
 
     @NonNull
-    private String safeText(TextInputEditText field) {
+    private String safeText(TextView field) {
         return field.getText() != null ? field.getText().toString().trim() : "";
     }
 
