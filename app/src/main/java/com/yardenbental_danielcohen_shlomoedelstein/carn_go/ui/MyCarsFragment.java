@@ -42,6 +42,7 @@ import com.google.android.gms.location.Priority;
 import com.google.android.material.datepicker.CalendarConstraints;
 import com.google.android.material.datepicker.DateValidatorPointForward;
 import com.google.android.material.datepicker.MaterialDatePicker;
+import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.timepicker.MaterialTimePicker;
 import com.google.android.material.timepicker.TimeFormat;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -258,13 +259,13 @@ public class MyCarsFragment extends Fragment {
 
     private void showEditCarDialog(Car car) {
         View dialogView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_add_car, null);
-        EditText etName = dialogView.findViewById(R.id.etCarName);
-        EditText etPrice = dialogView.findViewById(R.id.etPrice);
-        EditText etLocation = dialogView.findViewById(R.id.etLocation);
-        EditText etType = dialogView.findViewById(R.id.etType);
-        EditText etTransmission = dialogView.findViewById(R.id.etTransmission);
-        EditText etSeats = dialogView.findViewById(R.id.etSeats);
-        EditText etFuelType = dialogView.findViewById(R.id.etFuelType);
+        TextInputEditText etName = dialogView.findViewById(R.id.etCarName);
+        TextInputEditText etPrice = dialogView.findViewById(R.id.etPrice);
+        TextInputEditText etLocation = dialogView.findViewById(R.id.etLocation);
+        TextInputEditText etType = dialogView.findViewById(R.id.etType);
+        TextInputEditText etTransmission = dialogView.findViewById(R.id.etTransmission);
+        TextInputEditText etSeats = dialogView.findViewById(R.id.etSeats);
+        TextInputEditText etFuelType = dialogView.findViewById(R.id.etFuelType);
         Button btnUseCurrentLocation = dialogView.findViewById(R.id.btnUseCurrentLocation);
         Button btnPickStart = dialogView.findViewById(R.id.btnPickStart);
         Button btnPickEnd = dialogView.findViewById(R.id.btnPickEnd);
@@ -281,40 +282,34 @@ public class MyCarsFragment extends Fragment {
 
         selectedStartTimestamp = car.getAvailableFrom();
         selectedEndTimestamp = car.getAvailableTo();
+        normalizeAvailabilityForEditing();
         updateAvailabilityText(tvAvailability);
 
         btnUseCurrentLocation.setOnClickListener(v -> fillLocationFromGps(etLocation, locationDraft));
         btnPickStart.setOnClickListener(v -> pickDateTime(true, tvAvailability));
         btnPickEnd.setOnClickListener(v -> pickDateTime(false, tvAvailability));
 
-        new AlertDialog.Builder(requireContext())
+        AlertDialog dialog = new AlertDialog.Builder(requireContext())
                 .setTitle(R.string.edit_car_details)
                 .setView(dialogView)
-                .setPositiveButton(R.string.update, (dialog, which) -> {
-                    String name = etName.getText().toString().trim();
-                    String priceStr = etPrice.getText().toString().trim();
-                    String location = etLocation.getText().toString().trim();
-                    String type = etType.getText().toString().trim();
-                    String transmission = etTransmission.getText().toString().trim();
-                    String seatsStr = etSeats.getText().toString().trim();
-                    String fuelType = etFuelType.getText().toString().trim();
-
-                    if (!name.isEmpty() && !priceStr.isEmpty() && !location.isEmpty() && selectedStartTimestamp != 0 && selectedEndTimestamp != 0) {
-                        try {
-                            double price = Double.parseDouble(priceStr);
-                            int seats = seatsStr.isEmpty() ? 5 : Integer.parseInt(seatsStr);
-                            Double latitude = location.equals(locationDraft.displayName) ? locationDraft.latitude : null;
-                            Double longitude = location.equals(locationDraft.displayName) ? locationDraft.longitude : null;
-                            updateCarData(car.getId(), name, price, location, latitude, longitude, type, transmission, seats, fuelType, selectedStartTimestamp, selectedEndTimestamp);
-                        } catch (NumberFormatException e) {
-                            Toast.makeText(getContext(), R.string.error_invalid_input, Toast.LENGTH_SHORT).show();
-                        }
-                    } else {
-                        Toast.makeText(getContext(), R.string.error_required_fields, Toast.LENGTH_SHORT).show();
-                    }
-                })
+                .setPositiveButton(R.string.update, null)
                 .setNegativeButton(R.string.cancel, null)
-                .show();
+                .create();
+
+        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            CarFormData formData = buildCarFormData(etName, etPrice, etLocation, etType, etTransmission, etSeats, etFuelType);
+            if (formData == null || !validateAvailabilitySelection()) {
+                return;
+            }
+
+            Double latitude = formData.location.equals(locationDraft.displayName) ? locationDraft.latitude : null;
+            Double longitude = formData.location.equals(locationDraft.displayName) ? locationDraft.longitude : null;
+            updateCarData(car.getId(), formData.name, formData.price, formData.location, latitude, longitude,
+                    formData.type, formData.transmission, formData.seats, formData.fuelType,
+                    selectedStartTimestamp, selectedEndTimestamp);
+            dialog.dismiss();
+        }));
+        dialog.show();
     }
 
     private void updateCarData(String carId, String name, double price, String location, Double latitude, Double longitude, String type, String transmission, int seats, String fuelType, long start, long end) {
@@ -358,13 +353,13 @@ public class MyCarsFragment extends Fragment {
 
     private void showAddCarDialog(Object imageSource) {
         View dialogView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_add_car, null);
-        EditText etName = dialogView.findViewById(R.id.etCarName);
-        EditText etPrice = dialogView.findViewById(R.id.etPrice);
-        EditText etLocation = dialogView.findViewById(R.id.etLocation);
-        EditText etType = dialogView.findViewById(R.id.etType);
-        EditText etTransmission = dialogView.findViewById(R.id.etTransmission);
-        EditText etSeats = dialogView.findViewById(R.id.etSeats);
-        EditText etFuelType = dialogView.findViewById(R.id.etFuelType);
+        TextInputEditText etName = dialogView.findViewById(R.id.etCarName);
+        TextInputEditText etPrice = dialogView.findViewById(R.id.etPrice);
+        TextInputEditText etLocation = dialogView.findViewById(R.id.etLocation);
+        TextInputEditText etType = dialogView.findViewById(R.id.etType);
+        TextInputEditText etTransmission = dialogView.findViewById(R.id.etTransmission);
+        TextInputEditText etSeats = dialogView.findViewById(R.id.etSeats);
+        TextInputEditText etFuelType = dialogView.findViewById(R.id.etFuelType);
         Button btnUseCurrentLocation = dialogView.findViewById(R.id.btnUseCurrentLocation);
         Button btnPickStart = dialogView.findViewById(R.id.btnPickStart);
         Button btnPickEnd = dialogView.findViewById(R.id.btnPickEnd);
@@ -378,38 +373,33 @@ public class MyCarsFragment extends Fragment {
         btnPickStart.setOnClickListener(v -> pickDateTime(true, tvAvailability));
         btnPickEnd.setOnClickListener(v -> pickDateTime(false, tvAvailability));
 
-        new AlertDialog.Builder(requireContext())
+        AlertDialog dialog = new AlertDialog.Builder(requireContext())
                 .setTitle(R.string.add_new_car)
                 .setView(dialogView)
-                .setPositiveButton(R.string.add, (dialog, which) -> {
-                    String name = etName.getText().toString().trim();
-                    String priceStr = etPrice.getText().toString().trim();
-                    String location = etLocation.getText().toString().trim();
-                    String type = etType.getText().toString().trim();
-                    String transmission = etTransmission.getText().toString().trim();
-                    String seatsStr = etSeats.getText().toString().trim();
-                    String fuelType = etFuelType.getText().toString().trim();
-
-                    if (!name.isEmpty() && !priceStr.isEmpty() && !location.isEmpty() && selectedStartTimestamp != 0 && selectedEndTimestamp != 0) {
-                        try {
-                            double price = Double.parseDouble(priceStr);
-                            int seats = seatsStr.isEmpty() ? 5 : Integer.parseInt(seatsStr);
-                            Double latitude = location.equals(locationDraft.displayName) ? locationDraft.latitude : null;
-                            Double longitude = location.equals(locationDraft.displayName) ? locationDraft.longitude : null;
-                            uploadCarData(name, price, location, latitude, longitude, type, transmission, seats, fuelType, imageSource, selectedStartTimestamp, selectedEndTimestamp);
-                        } catch (NumberFormatException e) {
-                            Toast.makeText(getContext(), R.string.error_invalid_input, Toast.LENGTH_SHORT).show();
-                        }
-                    } else {
-                        Toast.makeText(getContext(), R.string.error_required_fields, Toast.LENGTH_SHORT).show();
-                    }
-                })
+                .setPositiveButton(R.string.add, null)
                 .setNegativeButton(R.string.cancel, null)
-                .show();
+                .create();
+
+        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            CarFormData formData = buildCarFormData(etName, etPrice, etLocation, etType, etTransmission, etSeats, etFuelType);
+            if (formData == null || !validateAvailabilitySelection()) {
+                return;
+            }
+
+            Double latitude = formData.location.equals(locationDraft.displayName) ? locationDraft.latitude : null;
+            Double longitude = formData.location.equals(locationDraft.displayName) ? locationDraft.longitude : null;
+            uploadCarData(formData.name, formData.price, formData.location, latitude, longitude,
+                    formData.type, formData.transmission, formData.seats, formData.fuelType,
+                    imageSource, selectedStartTimestamp, selectedEndTimestamp);
+            dialog.dismiss();
+        }));
+        dialog.show();
     }
 
     private void pickDateTime(boolean isStart, TextView tvDisplay) {
+        long minimumSelectableTimestamp = getMinimumSelectableTimestamp();
         Calendar todayUtc = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+        todayUtc.setTimeInMillis(minimumSelectableTimestamp);
         todayUtc.set(Calendar.HOUR_OF_DAY, 0);
         todayUtc.set(Calendar.MINUTE, 0);
         todayUtc.set(Calendar.SECOND, 0);
@@ -419,8 +409,11 @@ public class MyCarsFragment extends Fragment {
         CalendarConstraints.Builder constraintsBuilder = new CalendarConstraints.Builder();
         constraintsBuilder.setValidator(DateValidatorPointForward.from(startOfTodayUtc));
 
-        long selection = isStart ? (selectedStartTimestamp != 0 ? selectedStartTimestamp : System.currentTimeMillis())
-                : (selectedEndTimestamp != 0 ? selectedEndTimestamp : (selectedStartTimestamp != 0 ? selectedStartTimestamp + TimeUnit.HOURS.toMillis(1) : System.currentTimeMillis() + TimeUnit.HOURS.toMillis(1)));
+        long suggestedStartTimestamp = getSuggestedStartTimestamp();
+        long suggestedEndTimestamp = getSuggestedEndTimestamp();
+
+        long defaultSelection = isStart ? suggestedStartTimestamp : suggestedEndTimestamp;
+        long selection = Math.max(defaultSelection, minimumSelectableTimestamp);
 
         MaterialDatePicker<Long> datePicker = MaterialDatePicker.Builder.datePicker()
                 .setTitleText(isStart ? R.string.select_start_date : R.string.select_end_date)
@@ -431,19 +424,9 @@ public class MyCarsFragment extends Fragment {
         datePicker.addOnPositiveButtonClickListener(selectedDate -> {
             Calendar c = Calendar.getInstance();
             if (isStart) {
-                if (selectedStartTimestamp != 0) {
-                    c.setTimeInMillis(selectedStartTimestamp);
-                } else {
-                    c.setTimeInMillis(System.currentTimeMillis());
-                }
+                c.setTimeInMillis(suggestedStartTimestamp);
             } else {
-                if (selectedEndTimestamp != 0) {
-                    c.setTimeInMillis(selectedEndTimestamp);
-                } else if (selectedStartTimestamp != 0) {
-                    c.setTimeInMillis(selectedStartTimestamp + TimeUnit.HOURS.toMillis(1));
-                } else {
-                    c.setTimeInMillis(System.currentTimeMillis() + TimeUnit.HOURS.toMillis(24));
-                }
+                c.setTimeInMillis(suggestedEndTimestamp);
             }
 
             MaterialTimePicker timePicker = new MaterialTimePicker.Builder()
@@ -462,15 +445,22 @@ public class MyCarsFragment extends Fragment {
                 calendar.set(Calendar.MILLISECOND, 0);
 
                 if (isStart) {
-                    selectedStartTimestamp = calendar.getTimeInMillis();
+                    long chosenStart = calendar.getTimeInMillis();
+                    if (chosenStart < minimumSelectableTimestamp) {
+                        Toast.makeText(getContext(), R.string.error_start_in_past, Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    selectedStartTimestamp = chosenStart;
                     if (selectedEndTimestamp != 0 && selectedEndTimestamp <= selectedStartTimestamp) {
-                        selectedEndTimestamp = selectedStartTimestamp + TimeUnit.HOURS.toMillis(24);
+                        selectedEndTimestamp = selectedStartTimestamp + TimeUnit.HOURS.toMillis(1);
                     }
                 } else {
-                    selectedEndTimestamp = calendar.getTimeInMillis();
-                    if (selectedStartTimestamp != 0 && selectedStartTimestamp >= selectedEndTimestamp) {
-                        selectedStartTimestamp = selectedEndTimestamp - TimeUnit.HOURS.toMillis(24);
+                    long chosenEnd = calendar.getTimeInMillis();
+                    if (selectedStartTimestamp != 0 && chosenEnd <= selectedStartTimestamp) {
+                        Toast.makeText(getContext(), R.string.error_end_before_start, Toast.LENGTH_SHORT).show();
+                        return;
                     }
+                    selectedEndTimestamp = chosenEnd;
                 }
                 updateAvailabilityText(tvDisplay);
             });
@@ -484,6 +474,96 @@ public class MyCarsFragment extends Fragment {
         String startStr = selectedStartTimestamp == 0 ? "..." : sdf.format(new Date(selectedStartTimestamp));
         String endStr = selectedEndTimestamp == 0 ? "..." : sdf.format(new Date(selectedEndTimestamp));
         tvDisplay.setText(getString(R.string.available_from_to, startStr, endStr));
+    }
+
+    private void normalizeAvailabilityForEditing() {
+        long minimumSelectableTimestamp = getMinimumSelectableTimestamp();
+
+        if (selectedEndTimestamp <= minimumSelectableTimestamp) {
+            selectedStartTimestamp = minimumSelectableTimestamp;
+            selectedEndTimestamp = selectedStartTimestamp + TimeUnit.HOURS.toMillis(1);
+            return;
+        }
+
+        if (selectedStartTimestamp < minimumSelectableTimestamp) {
+            selectedStartTimestamp = minimumSelectableTimestamp;
+        }
+
+        if (selectedEndTimestamp <= selectedStartTimestamp) {
+            selectedEndTimestamp = selectedStartTimestamp + TimeUnit.HOURS.toMillis(1);
+        }
+    }
+
+    private long getSuggestedStartTimestamp() {
+        long minimumSelectableTimestamp = getMinimumSelectableTimestamp();
+        return selectedStartTimestamp != 0 ? Math.max(selectedStartTimestamp, minimumSelectableTimestamp) : minimumSelectableTimestamp;
+    }
+
+    private long getSuggestedEndTimestamp() {
+        long minimumSelectableTimestamp = getMinimumSelectableTimestamp();
+        if (selectedEndTimestamp != 0 && selectedEndTimestamp > minimumSelectableTimestamp) {
+            return selectedEndTimestamp;
+        }
+        long baseStart = getSuggestedStartTimestamp();
+        return Math.max(baseStart + TimeUnit.HOURS.toMillis(1), minimumSelectableTimestamp + TimeUnit.HOURS.toMillis(1));
+    }
+
+    private long getMinimumSelectableTimestamp() {
+        long now = System.currentTimeMillis();
+        long minuteMs = TimeUnit.MINUTES.toMillis(1);
+        return now + (minuteMs - (now % minuteMs));
+    }
+
+    @Nullable
+    private CarFormData buildCarFormData(TextInputEditText etName,
+                                         TextInputEditText etPrice,
+                                         TextInputEditText etLocation,
+                                         TextInputEditText etType,
+                                         TextInputEditText etTransmission,
+                                         TextInputEditText etSeats,
+                                         TextInputEditText etFuelType) {
+        String name = safeText(etName);
+        String priceStr = safeText(etPrice);
+        String location = safeText(etLocation);
+        String type = safeText(etType);
+        String transmission = safeText(etTransmission);
+        String seatsStr = safeText(etSeats);
+        String fuelType = safeText(etFuelType);
+
+        if (name.isEmpty() || priceStr.isEmpty() || location.isEmpty()) {
+            Toast.makeText(getContext(), R.string.error_required_fields, Toast.LENGTH_SHORT).show();
+            return null;
+        }
+
+        try {
+            double price = Double.parseDouble(priceStr);
+            int seats = seatsStr.isEmpty() ? 5 : Integer.parseInt(seatsStr);
+            return new CarFormData(name, price, location, type, transmission, seats, fuelType);
+        } catch (NumberFormatException error) {
+            Toast.makeText(getContext(), R.string.error_invalid_input, Toast.LENGTH_SHORT).show();
+            return null;
+        }
+    }
+
+    private boolean validateAvailabilitySelection() {
+        if (selectedStartTimestamp == 0 || selectedEndTimestamp == 0) {
+            Toast.makeText(getContext(), R.string.error_required_fields, Toast.LENGTH_SHORT).show();
+            return false;
+        }
+        if (selectedStartTimestamp < getMinimumSelectableTimestamp()) {
+            Toast.makeText(getContext(), R.string.error_start_in_past, Toast.LENGTH_SHORT).show();
+            return false;
+        }
+        if (selectedEndTimestamp <= selectedStartTimestamp) {
+            Toast.makeText(getContext(), R.string.error_end_before_start, Toast.LENGTH_SHORT).show();
+            return false;
+        }
+        return true;
+    }
+
+    @NonNull
+    private String safeText(TextInputEditText field) {
+        return field.getText() != null ? field.getText().toString().trim() : "";
     }
 
     private void uploadCarData(String carName, double price, String location, Double latitude, Double longitude, String type, String transmission, int seats, String fuelType, Object imageSource, long start, long end) {
@@ -665,5 +745,25 @@ public class MyCarsFragment extends Fragment {
 
     private interface AddressCallback {
         void onAddressResolved(String address);
+    }
+
+    private static class CarFormData {
+        final String name;
+        final double price;
+        final String location;
+        final String type;
+        final String transmission;
+        final int seats;
+        final String fuelType;
+
+        CarFormData(String name, double price, String location, String type, String transmission, int seats, String fuelType) {
+            this.name = name;
+            this.price = price;
+            this.location = location;
+            this.type = type;
+            this.transmission = transmission;
+            this.seats = seats;
+            this.fuelType = fuelType;
+        }
     }
 }

@@ -53,6 +53,8 @@
     <string name="add_new_car">Add New Car</string>
     <string name="add">Add</string>
     <string name="error_invalid_input">Invalid price or seats</string>
+    <string name="error_start_in_past">Start time cannot be in the past</string>
+    <string name="error_end_before_start">End time must be after start time</string>
     <string name="select_start_date">Select Start Date</string>
     <string name="select_end_date">Select End Date</string>
     <string name="select_start_time">Select Start Time</string>
@@ -86,5 +88,24 @@
     <string name="dark_mode_title">Dark mode</string>
     <string name="dark_mode_description">Use a darker theme across the app.</string>
     <string name="dark_mode_switch">Enable dark mode</string>
+    <string name="splash_badge">Instant nearby discovery</string>
+    <string name="splash_title">Find the closest ride before you even hit Explore.</string>
+    <string name="splash_title_compact">Closest rides near you</string>
+    <string name="splash_subtitle">Start with one tap, scan the area around you, and jump straight into the best nearby options.</string>
+    <string name="splash_search_button">Search nearby cars</string>
+    <string name="splash_searching_button">Searching...</string>
+    <string name="splash_search_again_button">Search again</string>
+    <string name="splash_retry_button">Try again</string>
+    <string name="splash_skip">Skip to app</string>
+    <string name="splash_status_idle">Ready when you are. Search now or skip straight to the full app.</string>
+    <string name="splash_status_searching">Looking for the closest cars around you…</string>
+    <string name="splash_status_found">Found %1$d nearby cars. Tap one to open details or skip to Explore.</string>
+    <string name="splash_status_no_results">No nearby cars matched your current radius. You can still skip to Explore and browse everything.</string>
+    <string name="splash_status_location_denied">Location access is off. Allow it to find the nearest cars, or skip to Explore.</string>
+    <string name="splash_status_location_unavailable">We could not get your current location right now. Try again or skip to Explore.</string>
+    <string name="splash_status_error">Nearby search failed. Try again or skip to Explore.</string>
+    <string name="splash_results_title">Top 3 closest right now</string>
+    <string name="splash_results_subtitle">These are the strongest matches based on your current location and search radius.</string>
+    <string name="splash_results_empty_title">Nothing nearby in range</string>
 
 </resources>

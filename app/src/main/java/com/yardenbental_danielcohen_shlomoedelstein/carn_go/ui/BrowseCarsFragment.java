@@ -39,14 +39,12 @@ import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.AppPreferences;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.R;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.adapter.CarAdapter;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.discovery.CarDiscoveryHelper;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Car;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.sync.BookingSyncScheduler;
 
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
-import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
 public class BrowseCarsFragment extends Fragment {
@@ -270,62 +268,22 @@ public class BrowseCarsFragment extends Fragment {
 
         long currentTime = System.currentTimeMillis();
 
-        FirebaseFirestore.getInstance().collection("cars")
-                .get()
-                .addOnSuccessListener(queryDocumentSnapshots -> {
-                    allCars.clear();
-                    for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
-                        try {
-                            Long availableTo = document.getLong("availableTo");
-                            if (availableTo != null && availableTo < currentTime) {
-                                continue;
-                            }
+        CarDiscoveryHelper.loadAvailableCars(requireContext(), currentTime, new CarDiscoveryHelper.CarsResultCallback() {
+            @Override
+            public void onSuccess(List<Car> loadedCars) {
+                allCars.clear();
+                allCars.addAll(loadedCars);
+                applyFiltersAndSort();
+                finishLoading();
+            }
 
-                            String name = document.getString("name");
-                            String type = document.getString("type");
-                            String location = document.getString("location");
-                            Double latitude = document.getDouble("latitude");
-                            Double longitude = document.getDouble("longitude");
-                            Double price = document.getDouble("pricePerHour");
-                            Double rating = document.getDouble("rating");
-                            String imageUrl = document.getString("imageUrl");
-                            String transmission = document.getString("transmission");
-                            Long seatsLong = document.getLong("seats");
-                            int seats = seatsLong != null ? seatsLong.intValue() : 5;
-                            String fuelType = document.getString("fuelType");
-                            String tag = document.getString("tag");
-                            String ownerId = document.getString("ownerId");
-                            Long availableFrom = document.getLong("availableFrom");
-
-                            allCars.add(new Car(
-                                    document.getId(),
-                                    name != null ? name : getString(R.string.unknown),
-                                    type != null ? type : getString(R.string.standard),
-                                    location != null ? location : getString(R.string.location_unavailable_label),
-                                    latitude,
-                                    longitude,
-                                    price != null ? price : 0.0,
-                                    rating != null ? rating : 5.0,
-                                    imageUrl,
-                                    transmission != null ? transmission : getString(R.string.auto),
-                                    seats,
-                                    fuelType != null ? fuelType : getString(R.string.gas),
-                                    tag != null ? tag : "",
-                                    ownerId != null ? ownerId : "",
-                                    availableFrom != null ? availableFrom : 0,
-                                    availableTo != null ? availableTo : 0
-                            ));
-                        } catch (Exception e) {
-                            Log.e("BrowseCarsFragment", "Error parsing car", e);
-                        }
-                    }
-                    applyFiltersAndSort();
-                    finishLoading();
-                })
-                .addOnFailureListener(e -> {
-                    Toast.makeText(getContext(), R.string.failed_to_load_cars, Toast.LENGTH_SHORT).show();
-                    finishLoading();
-                });
+            @Override
+            public void onError(Exception error) {
+                Log.e("BrowseCarsFragment", "Error loading cars", error);
+                Toast.makeText(getContext(), R.string.failed_to_load_cars, Toast.LENGTH_SHORT).show();
+                finishLoading();
+            }
+        });
     }
 
     private void applyFiltersAndSort() {
@@ -336,58 +294,17 @@ public class BrowseCarsFragment extends Fragment {
         int radiusKm = AppPreferences.getSearchRadiusKm(requireContext());
         lastAppliedRadiusKm = radiusKm;
         cars.clear();
-
-        for (Car car : allCars) {
-            if (!matchesTypeFilter(car)) {
-                continue;
-            }
-
-            Double distanceKm = calculateDistanceKm(car);
-            car.setDistanceKm(distanceKm);
-
-            if (currentLocation != null && radiusKm > 0) {
-                if (distanceKm == null || distanceKm > radiusKm) {
-                    continue;
-                }
-            }
-
-            cars.add(car);
-        }
-
-        Collections.sort(cars, Comparator
-                .comparing(Car::getDistanceKm, (left, right) -> {
-                    if (left == null && right == null) return 0;
-                    if (left == null) return 1;
-                    if (right == null) return -1;
-                    return Double.compare(left, right);
-                })
-                .thenComparing(Car::getName, String.CASE_INSENSITIVE_ORDER));
-
+        cars.addAll(CarDiscoveryHelper.filterAndSortCars(
+                allCars,
+                currentLocation,
+                radiusKm,
+                this::matchesTypeFilter
+        ));
         adapter.notifyDataSetChanged();
     }
 
     private boolean matchesTypeFilter(Car car) {
-        if (activeTypeFilter == null || activeTypeFilter.isEmpty()) {
-            return true;
-        }
-        String carType = car.getType();
-        return carType != null && carType.toLowerCase(Locale.ROOT).contains(activeTypeFilter.toLowerCase(Locale.ROOT));
-    }
-
-    private Double calculateDistanceKm(Car car) {
-        if (currentLocation == null || car.getLatitude() == null || car.getLongitude() == null) {
-            return null;
-        }
-
-        float[] results = new float[1];
-        Location.distanceBetween(
-                currentLocation.getLatitude(),
-                currentLocation.getLongitude(),
-                car.getLatitude(),
-                car.getLongitude(),
-                results
-        );
-        return results[0] / 1000d;
+        return CarDiscoveryHelper.matchesTypeFilter(car, activeTypeFilter);
     }
 
     private void finishLoading() {

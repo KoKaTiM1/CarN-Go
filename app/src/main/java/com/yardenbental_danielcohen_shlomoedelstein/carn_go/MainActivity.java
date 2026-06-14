@@ -8,6 +8,8 @@ import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
+import android.graphics.Color;
 
 import androidx.activity.EdgeToEdge;
 import androidx.activity.result.ActivityResultLauncher;
@@ -19,6 +21,7 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.navigation.NavController;
+import androidx.navigation.NavOptions;
 import androidx.navigation.fragment.NavHostFragment;
 import androidx.navigation.ui.NavigationUI;
 import androidx.appcompat.widget.Toolbar;
@@ -37,6 +40,9 @@ import com.yardenbental_danielcohen_shlomoedelstein.carn_go.ui.SettingsActivity;
 
 
 public class MainActivity extends AppCompatActivity {
+
+    private static boolean shouldShowColdStartSplash = true;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -65,12 +71,32 @@ public class MainActivity extends AppCompatActivity {
         if (navHostFragment != null) {
             NavController navController = navHostFragment.getNavController();
             BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);
+            Toolbar appToolbar = findViewById(R.id.toolbar);
             NavigationUI.setupWithNavController(bottomNav, navController);
 
             // Handle tab re-selection: if the user clicks the current tab icon, pop to its root
             bottomNav.setOnItemReselectedListener(item -> {
                 navController.popBackStack(item.getItemId(), false);
             });
+
+            navController.addOnDestinationChangedListener((controller, destination, arguments) -> {
+                boolean isSplash = destination.getId() == R.id.splashFragment;
+                appToolbar.setVisibility(View.VISIBLE);
+                bottomNav.setVisibility(isSplash ? View.GONE : View.VISIBLE);
+                appToolbar.setBackgroundColor(isSplash ? Color.TRANSPARENT : ContextCompat.getColor(this, R.color.primary));
+                appToolbar.setElevation(isSplash ? 0f : getResources().getDisplayMetrics().density * 4f);
+                if (!isSplash) {
+                    shouldShowColdStartSplash = false;
+                }
+            });
+
+            if (!shouldShowColdStartSplash && navController.getCurrentDestination() != null
+                    && navController.getCurrentDestination().getId() == R.id.splashFragment) {
+                NavOptions navOptions = new NavOptions.Builder()
+                        .setPopUpTo(R.id.splashFragment, true)
+                        .build();
+                navController.navigate(R.id.action_splashFragment_to_browseCarsFragment, null, navOptions);
+            }
         }
     }
 
