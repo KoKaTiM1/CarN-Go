@@ -141,12 +141,13 @@
                 android:textColor="#D9E8FF"
                 android:textSize="13sp" />
 
-            <androidx.recyclerview.widget.RecyclerView
+            <ListView
                 android:id="@+id/rvSplashCars"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
-                android:nestedScrollingEnabled="false" />
+                android:divider="@android:color/transparent"
+                android:dividerHeight="12dp" />
         </LinearLayout>
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>

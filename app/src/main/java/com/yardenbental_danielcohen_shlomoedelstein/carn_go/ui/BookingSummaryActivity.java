@@ -4,9 +4,7 @@ import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.content.Intent;
 import android.os.Bundle;
-import android.view.LayoutInflater;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -29,10 +27,6 @@ import java.util.concurrent.TimeUnit;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.widget.Toolbar;
-import androidx.fragment.app.Fragment;
-import androidx.navigation.NavController;
-import androidx.navigation.Navigation;
-import com.google.android.material.bottomnavigation.BottomNavigationView;
 
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
@@ -67,21 +61,23 @@ import org.json.JSONObject;
 /**
  * Fragment that displays a summary of the booking for a selected car.
  */
-public class BookingSummaryFragment extends Fragment {
+public class BookingSummaryActivity extends BaseNavigationActivity {
 
     private long selectedStartTimestamp = 0;
     private long selectedEndTimestamp = 0;
     private double totalPrice = 0;
     private List<Booking> existingBookings = new ArrayList<>();
+    private View contentView;
 
-    @Nullable
     @Override
-    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-        // Inflate the layout for this fragment
-        View view = inflater.inflate(R.layout.fragment_booking_summary, container, false);
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setTitle("Booking Summary");
+        setScreenContent(R.layout.fragment_booking_summary, 0, false, true);
+        View view = findViewById(android.R.id.content);
+        contentView = view;
 
-        // Retrieve the Car object passed from the previous fragment
-        Car car = (Car) getArguments().getSerializable("car");
+        Car car = (Car) getIntent().getSerializableExtra("car");
         if (car != null) {
             TextView tvName = view.findViewById(R.id.tvSummaryCarName);
             TextView tvPrice = view.findViewById(R.id.tvSummaryPrice);
@@ -111,24 +107,24 @@ public class BookingSummaryFragment extends Fragment {
             Toolbar toolbar = view.findViewById(R.id.toolbarSummary);
             if (toolbar != null) {
                 toolbar.setNavigationOnClickListener(v -> {
-                    Navigation.findNavController(view).navigateUp();
+                    finish();
                 });
             }
 
             // Handle the confirm booking button click
             view.findViewById(R.id.btnConfirmBooking).setOnClickListener(v -> {
                 if (selectedStartTimestamp == 0 || selectedEndTimestamp == 0) {
-                    Toast.makeText(getContext(), "Please select a booking period", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(BookingSummaryActivity.this, "Please select a booking period", Toast.LENGTH_SHORT).show();
                     return;
                 }
                 if (selectedEndTimestamp <= selectedStartTimestamp) {
-                    Toast.makeText(getContext(), "End time must be after start time", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(BookingSummaryActivity.this, "End time must be after start time", Toast.LENGTH_SHORT).show();
                     return;
                 }
                 
                 // Check if within car's availability
                 if (selectedStartTimestamp < car.getAvailableFrom() || selectedEndTimestamp > car.getAvailableTo()) {
-                    Toast.makeText(getContext(), "Booking period is outside car's availability", Toast.LENGTH_LONG).show();
+                    Toast.makeText(BookingSummaryActivity.this, "Booking period is outside car's availability", Toast.LENGTH_LONG).show();
                     return;
                 }
 
@@ -136,7 +132,6 @@ public class BookingSummaryFragment extends Fragment {
             });
         }
 
-        return view;
     }
 
     private void fetchBookingsAndSuggestSlot(Car car, TextView tvDisplay, TextView tvTotal, TextView tvTotalLabel) {
@@ -282,7 +277,7 @@ public class BookingSummaryFragment extends Fragment {
             // Proceed to Time Picker
             showTimePicker(selectedDate, isStart, tvDisplay, tvTotal, tvTotalLabel, car, now);
         });
-        datePicker.show(getParentFragmentManager(), "DATE_PICKER");
+        datePicker.show(getSupportFragmentManager(), "DATE_PICKER");
     }
 
     // Extracted Time Picker logic for clarity
@@ -313,7 +308,7 @@ public class BookingSummaryFragment extends Fragment {
             if (isStart) {
                 long pickerAlignedNow = now - (now % TimeUnit.MINUTES.toMillis(1));
                 if (newTimestamp < pickerAlignedNow) {
-                    Toast.makeText(getContext(), "Start time cannot be in the past", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(BookingSummaryActivity.this, "Start time cannot be in the past", Toast.LENGTH_SHORT).show();
                     return;
                 }
                 selectedStartTimestamp = newTimestamp;
@@ -323,14 +318,14 @@ public class BookingSummaryFragment extends Fragment {
                 }
             } else {
                 if (selectedStartTimestamp != 0 && newTimestamp <= selectedStartTimestamp) {
-                    Toast.makeText(getContext(), "End time must be after start time", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(BookingSummaryActivity.this, "End time must be after start time", Toast.LENGTH_SHORT).show();
                     return;
                 }
                 selectedEndTimestamp = newTimestamp;
             }
             updateBookingSummary(tvDisplay, tvTotal, tvTotalLabel, car);
         });
-        timePicker.show(getParentFragmentManager(), "TIME_PICKER");
+        timePicker.show(getSupportFragmentManager(), "TIME_PICKER");
     }
 
     private void updateBookingSummary(TextView tvDisplay, TextView tvTotal, TextView tvTotalLabel, Car car) {
@@ -412,20 +407,20 @@ public class BookingSummaryFragment extends Fragment {
                                 }
                             })
                             .addOnFailureListener(e2 -> {
-                                Toast.makeText(getContext(), "Error checking availability: " + e2.getMessage(), Toast.LENGTH_SHORT).show();
+                                Toast.makeText(BookingSummaryActivity.this, "Error checking availability: " + e2.getMessage(), Toast.LENGTH_SHORT).show();
                             });
                 });
     }
 
     private void handleOverlap(Car car) {
-        Toast.makeText(getContext(), "Overlaps with another booking. Auto-adjusting...", Toast.LENGTH_LONG).show();
-        suggestFirstAvailableSlot(car, getView().findViewById(R.id.tvSelectedBookingPeriod), 
-                                 getView().findViewById(R.id.tvSummaryTotal), 
-                                 getView().findViewById(R.id.tvTotalLabel));
+        Toast.makeText(BookingSummaryActivity.this, "Overlaps with another booking. Auto-adjusting...", Toast.LENGTH_LONG).show();
+        suggestFirstAvailableSlot(car, contentView.findViewById(R.id.tvSelectedBookingPeriod), 
+                                 contentView.findViewById(R.id.tvSummaryTotal), 
+                                 contentView.findViewById(R.id.tvTotalLabel));
     }
 
     private void confirmBooking(Car car) {
-        String userId = FirestoreHelper.getCurrentUserId(getContext());
+        String userId = FirestoreHelper.getCurrentUserId(BookingSummaryActivity.this);
         if (userId == null) return;
 
         FirebaseFirestore db = FirebaseFirestore.getInstance();
@@ -444,7 +439,7 @@ public class BookingSummaryFragment extends Fragment {
 
         db.collection("bookings").add(bookingData)
                 .addOnSuccessListener(documentReference -> {
-                    Toast.makeText(getContext(), "Booking Confirmed!", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(BookingSummaryActivity.this, "Booking Confirmed!", Toast.LENGTH_SHORT).show();
 
                     Booking createdBooking = new Booking(
                             documentReference.getId(),
@@ -459,30 +454,22 @@ public class BookingSummaryFragment extends Fragment {
                             System.currentTimeMillis(),
                             BookingStatus.PENDING
                     );
-                    ReminderScheduler.cancelRentalReminders(requireContext(), createdBooking.getId());
+                    ReminderScheduler.cancelRentalReminders(BookingSummaryActivity.this, createdBooking.getId());
 
                     // 2. Trigger local notification for the Renter (Added to bookings)
-                    showLocalNotification(getContext().getApplicationContext(), "Booking Submitted", 
+                    showLocalNotification(getApplicationContext(), "Booking Submitted", 
                             "Your request for " + car.getName() + " has been added to 'My Bookings'. Wait for owner approval!");
 
                     // 3. Trigger notification to the owner
                     notifyOwner(car);
-                    BookingSyncScheduler.requestImmediateSync(requireContext(), "booking_created");
+                    BookingSyncScheduler.requestImmediateSync(BookingSummaryActivity.this, "booking_created");
                     
-                    NavController navController = Navigation.findNavController(requireView());
-                    // Pop everything in the Explore tab back to the car list
-                    navController.popBackStack(R.id.browseCarsFragment, false);
-                    
-                    // Switch the active tab to "My Bookings"
-                    if (getActivity() != null) {
-                        BottomNavigationView bottomNav = getActivity().findViewById(R.id.bottom_navigation);
-                        if (bottomNav != null) {
-                            bottomNav.setSelectedItemId(R.id.myBookingsFragment);
-                        }
-                    }
+                    Intent intent = new Intent(BookingSummaryActivity.this, MyBookingsActivity.class);
+                    intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                    startActivity(intent);
                 })
                 .addOnFailureListener(e -> {
-                    Toast.makeText(getContext(), "Booking failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    Toast.makeText(BookingSummaryActivity.this, "Booking failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                 });
     }
 
@@ -491,16 +478,16 @@ public class BookingSummaryFragment extends Fragment {
         if (ownerId == null || ownerId.isEmpty()) return;
 
         // Get current user ID to see if we should show the local simulation
-        String currentUserId = FirestoreHelper.getCurrentUserId(getContext());
+        String currentUserId = FirestoreHelper.getCurrentUserId(BookingSummaryActivity.this);
 
         // Capture application context to avoid null context when fragment is detached
-        Context appContext = requireContext().getApplicationContext();
+        Context appContext = getApplicationContext();
 
         FirestoreHelper.getUserToken(ownerId).addOnSuccessListener(documentSnapshot -> {
             if (documentSnapshot.exists()) {
                 String token = documentSnapshot.getString("token");
                 if (token != null) {
-                    android.util.Log.d("BookingSummaryFragment", "Owner FCM Token found: " + token);
+                    android.util.Log.d("BookingSummaryActivity", "Owner FCM Token found: " + token);
 
                     // Simulation logic: Only show the "Owner Alert" if the current user IS the owner
                     if (currentUserId != null && currentUserId.equals(ownerId)) {
@@ -510,10 +497,10 @@ public class BookingSummaryFragment extends Fragment {
                     }
                 }
             } else {
-                android.util.Log.w("BookingSummaryFragment", "No user document found for ownerId: " + ownerId);
+                android.util.Log.w("BookingSummaryActivity", "No user document found for ownerId: " + ownerId);
             }
         }).addOnFailureListener(e -> {
-            android.util.Log.e("BookingSummaryFragment", "Failed to fetch owner token", e);
+            android.util.Log.e("BookingSummaryActivity", "Failed to fetch owner token", e);
         });
     }
 
@@ -571,11 +558,11 @@ public class BookingSummaryFragment extends Fragment {
 
     private void showLocalNotification(Context context, String title, String body) {
         if (context == null) {
-            android.util.Log.e("BookingSummaryFragment", "Cannot show notification: context is null");
+            android.util.Log.e("BookingSummaryActivity", "Cannot show notification: context is null");
             return;
         }
 
-        android.util.Log.d("BookingSummaryFragment", "Attempting to show notification: " + title);
+        android.util.Log.d("BookingSummaryActivity", "Attempting to show notification: " + title);
 
         NotificationManager notificationManager = (NotificationManager)
                 context.getSystemService(Context.NOTIFICATION_SERVICE);
@@ -592,9 +579,9 @@ public class BookingSummaryFragment extends Fragment {
         if (notificationManager != null) {
             int notificationId = (int) System.currentTimeMillis();
             notificationManager.notify(notificationId, builder.build());
-            android.util.Log.d("BookingSummaryFragment", "Notification ID " + notificationId + " sent to system");
+            android.util.Log.d("BookingSummaryActivity", "Notification ID " + notificationId + " sent to system");
         } else {
-            android.util.Log.e("BookingSummaryFragment", "NotificationManager is null");
+            android.util.Log.e("BookingSummaryActivity", "NotificationManager is null");
         }
     }
 }

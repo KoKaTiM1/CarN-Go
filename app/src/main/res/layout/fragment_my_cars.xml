@@ -5,10 +5,12 @@
     android:layout_height="match_parent"
     android:background="@color/background">
 
-    <androidx.recyclerview.widget.RecyclerView
+    <ListView
         android:id="@+id/rvMyCars"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:divider="@android:color/transparent"
+        android:dividerHeight="12dp"
         android:clipToPadding="false"
         android:padding="16dp" />
 

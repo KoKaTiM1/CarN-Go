@@ -6,21 +6,15 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
-import android.view.LayoutInflater;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.LinearLayout;
+import android.widget.ListView;
 import android.widget.Toast;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.core.content.ContextCompat;
 import androidx.core.app.NotificationCompat;
-import androidx.fragment.app.Fragment;
-import androidx.navigation.Navigation;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
+import androidx.core.content.ContextCompat;
 
+import com.google.auth.oauth2.GoogleCredentials;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.R;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.adapter.BookingAdapter;
@@ -30,7 +24,6 @@ import com.yardenbental_danielcohen_shlomoedelstein.carn_go.sync.BookingStatus;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.sync.BookingSyncScheduler;
 
 import org.json.JSONObject;
-import com.google.auth.oauth2.GoogleCredentials;
 
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -42,12 +35,13 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 
-public class MyBookingsFragment extends Fragment implements BookingAdapter.OnBookingActionListener {
+public class MyBookingsActivity extends BaseNavigationActivity implements BookingAdapter.OnBookingActionListener {
 
-    private RecyclerView rvBookings;
+    private ListView rvBookings;
     private BookingAdapter adapter;
     private List<Booking> bookingList;
     private LinearLayout layoutNoBookings;
+
     private final BroadcastReceiver syncReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -55,30 +49,29 @@ public class MyBookingsFragment extends Fragment implements BookingAdapter.OnBoo
         }
     };
 
-    @Nullable
     @Override
-    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-        View view = inflater.inflate(R.layout.fragment_my_bookings, container, false);
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setTitle("My Bookings");
+        setScreenContent(R.layout.fragment_my_bookings, R.id.nav_my_bookings, true, true);
+        View view = findViewById(android.R.id.content);
 
         rvBookings = view.findViewById(R.id.rvMyBookings);
         layoutNoBookings = view.findViewById(R.id.layoutNoBookings);
-        
-        String userId = FirestoreHelper.getCurrentUserId(getContext());
-        rvBookings.setLayoutManager(new LinearLayoutManager(getContext()));
+
+        String userId = FirestoreHelper.getCurrentUserId(this);
         bookingList = new ArrayList<>();
         adapter = new BookingAdapter(bookingList, userId, this);
         rvBookings.setAdapter(adapter);
 
         loadBookings();
-
-        return view;
     }
 
     @Override
     public void onResume() {
         super.onResume();
         ContextCompat.registerReceiver(
-                requireContext(),
+                this,
                 syncReceiver,
                 new IntentFilter(BookingSyncScheduler.ACTION_SYNC_COMPLETED),
                 ContextCompat.RECEIVER_NOT_EXPORTED
@@ -90,18 +83,16 @@ public class MyBookingsFragment extends Fragment implements BookingAdapter.OnBoo
     public void onPause() {
         super.onPause();
         try {
-            requireContext().unregisterReceiver(syncReceiver);
+            unregisterReceiver(syncReceiver);
         } catch (IllegalArgumentException ignored) {
         }
     }
 
     private void loadBookings() {
-        String userId = FirestoreHelper.getCurrentUserId(getContext());
+        String userId = FirestoreHelper.getCurrentUserId(this);
         if (userId == null) return;
 
         FirebaseFirestore db = FirebaseFirestore.getInstance();
-        
-        // Load bookings where I am the Renter
         db.collection("bookings")
                 .whereEqualTo("userId", userId)
                 .get()
@@ -112,8 +103,7 @@ public class MyBookingsFragment extends Fragment implements BookingAdapter.OnBoo
                         b.setId(doc.getId());
                         bookingList.add(b);
                     }
-                    
-                    // Also load bookings where I am the Owner (Requests for my cars)
+
                     db.collection("bookings")
                             .whereEqualTo("ownerId", userId)
                             .get()
@@ -121,21 +111,21 @@ public class MyBookingsFragment extends Fragment implements BookingAdapter.OnBoo
                                 for (com.google.firebase.firestore.QueryDocumentSnapshot doc : requests) {
                                     Booking b = doc.toObject(Booking.class);
                                     b.setId(doc.getId());
-                                    // Avoid duplicates
                                     boolean exists = false;
                                     for (Booking existing : bookingList) {
-                                        if (existing.getId().equals(b.getId())) { exists = true; break; }
+                                        if (existing.getId().equals(b.getId())) {
+                                            exists = true;
+                                            break;
+                                        }
                                     }
                                     if (!exists) bookingList.add(b);
                                 }
-                                
+
                                 Collections.sort(bookingList, (b1, b2) -> Long.compare(b2.getTimestamp(), b1.getTimestamp()));
                                 updateUI();
                             });
                 })
-                .addOnFailureListener(e -> {
-                    Toast.makeText(getContext(), "Error loading bookings", Toast.LENGTH_SHORT).show();
-                });
+                .addOnFailureListener(e -> Toast.makeText(this, "Error loading bookings", Toast.LENGTH_SHORT).show());
     }
 
     private void updateUI() {
@@ -161,32 +151,23 @@ public class MyBookingsFragment extends Fragment implements BookingAdapter.OnBoo
 
     @Override
     public void onPickupPhoto(Booking booking) {
-        Bundle bundle = new Bundle();
-        bundle.putSerializable("booking", booking);
-        if (getView() != null) {
-            Navigation.findNavController(getView())
-                    .navigate(R.id.action_myBookingsFragment_to_rentalPickupFragment, bundle);
-        }
+        Intent intent = new Intent(this, RentalPickupActivity.class);
+        intent.putExtra("booking", booking);
+        startActivity(intent);
     }
 
     @Override
     public void onFinish(Booking booking) {
-        Bundle bundle = new Bundle();
-        bundle.putSerializable("booking", booking);
-        if (getView() != null) {
-            Navigation.findNavController(getView())
-                    .navigate(R.id.action_myBookingsFragment_to_rentalCompletionFragment, bundle);
-        }
+        Intent intent = new Intent(this, RentalCompletionActivity.class);
+        intent.putExtra("booking", booking);
+        startActivity(intent);
     }
 
     @Override
     public void onViewPhotos(Booking booking) {
-        Bundle bundle = new Bundle();
-        bundle.putSerializable("booking", booking);
-        if (getView() != null) {
-            Navigation.findNavController(getView())
-                    .navigate(R.id.action_myBookingsFragment_to_viewPhotosFragment, bundle);
-        }
+        Intent intent = new Intent(this, ViewPhotosActivity.class);
+        intent.putExtra("booking", booking);
+        startActivity(intent);
     }
 
     private void updateBookingStatus(Booking booking, String newStatus) {
@@ -194,22 +175,20 @@ public class MyBookingsFragment extends Fragment implements BookingAdapter.OnBoo
         db.collection("bookings").document(booking.getId())
                 .update("status", newStatus)
                 .addOnSuccessListener(aVoid -> {
-                    Toast.makeText(getContext(), "Booking " + newStatus, Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "Booking " + newStatus, Toast.LENGTH_SHORT).show();
                     booking.setStatus(newStatus);
                     adapter.notifyDataSetChanged();
-                    
+
                     notifyRenter(booking, newStatus);
-                    BookingSyncScheduler.requestImmediateSync(requireContext(), "booking_status_" + newStatus.toLowerCase());
+                    BookingSyncScheduler.requestImmediateSync(this, "booking_status_" + newStatus.toLowerCase());
                 })
-                .addOnFailureListener(e -> Toast.makeText(getContext(), "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+                .addOnFailureListener(e -> Toast.makeText(this, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show());
     }
 
     private void notifyRenter(Booking booking, String status) {
         String renterId = booking.getUserId();
-        String currentUserId = FirestoreHelper.getCurrentUserId(getContext());
-        Context context = getContext();
-        if (context == null) return;
-        Context appContext = context.getApplicationContext();
+        String currentUserId = FirestoreHelper.getCurrentUserId(this);
+        Context appContext = getApplicationContext();
 
         String title = BookingStatus.APPROVED.equals(status) ? "[TEST] Alert for Renter: Approved" : "[TEST] Alert for Renter: Rejected";
         String message = "Your booking for " + booking.getCarName() + " has been " + status.toLowerCase() + " by the owner.";
@@ -218,11 +197,11 @@ public class MyBookingsFragment extends Fragment implements BookingAdapter.OnBoo
             if (documentSnapshot.exists()) {
                 String token = documentSnapshot.getString("token");
                 if (token != null) {
-                    // Only show alert if I am the Renter (for single-device testing)
                     if (currentUserId != null && currentUserId.equals(renterId)) {
                         showLocalNotification(appContext, title, message);
                     } else {
-                        sendFCMNotification(appContext, token, title, message);                    }
+                        sendFCMNotification(appContext, token, title, message);
+                    }
                 }
             }
         });
@@ -231,37 +210,30 @@ public class MyBookingsFragment extends Fragment implements BookingAdapter.OnBoo
     private void sendFCMNotification(Context context, String targetToken, String title, String body) {
         new Thread(() -> {
             try {
-                // 1. Get Access Token using the Service Account JSON
                 InputStream inputStream = context.getResources().openRawResource(R.raw.service_account);
                 GoogleCredentials credentials = GoogleCredentials.fromStream(inputStream)
                         .createScoped(Collections.singletonList("https://www.googleapis.com/auth/cloud-platform"));
                 credentials.refreshIfExpired();
                 String accessToken = credentials.getAccessToken().getTokenValue();
 
-                // 2. Build the V1 JSON Structure
                 JSONObject message = new JSONObject();
                 JSONObject notification = new JSONObject();
                 notification.put("title", title);
                 notification.put("body", body);
-
                 message.put("token", targetToken);
                 message.put("notification", notification);
 
                 JSONObject root = new JSONObject();
                 root.put("message", message);
 
-                // 3. Send the Request
                 OkHttpClient client = new OkHttpClient();
                 RequestBody requestBody = RequestBody.create(
                         root.toString(),
                         MediaType.parse("application/json; charset=utf-8")
                 );
 
-                // Using project ID 'carn-go'
-                String url = "https://fcm.googleapis.com/v1/projects/carn-go/messages:send";
-
                 Request request = new Request.Builder()
-                        .url(url)
+                        .url("https://fcm.googleapis.com/v1/projects/carn-go/messages:send")
                         .post(requestBody)
                         .addHeader("Authorization", "Bearer " + accessToken)
                         .build();

@@ -7,14 +7,16 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.util.Log;
 import android.util.TypedValue;
-import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.AccelerateDecelerateInterpolator;
 import android.widget.TextView;
+import android.widget.ListView;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -22,25 +24,25 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.core.content.ContextCompat;
-import androidx.fragment.app.Fragment;
-import androidx.navigation.Navigation;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.Priority;
 import com.google.android.material.button.MaterialButton;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.messaging.FirebaseMessaging;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.AppPreferences;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.R;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.adapter.SplashCarAdapter;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.discovery.CarDiscoveryHelper;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.firebase.FirestoreHelper;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Car;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.sync.BookingSyncScheduler;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class SplashFragment extends Fragment {
+public class SplashActivity extends BaseNavigationActivity {
 
     private static final int MAX_RESULTS = 3;
     private static final String STATE_NEAREST_CARS = "state_nearest_cars";
@@ -52,6 +54,7 @@ public class SplashFragment extends Fragment {
     private final List<Car> nearestCars = new ArrayList<>();
     private FusedLocationProviderClient fusedLocationClient;
     private ActivityResultLauncher<String[]> locationPermissionLauncher;
+    private ActivityResultLauncher<String> notificationPermissionLauncher;
     private SplashCarAdapter adapter;
     private MaterialButton btnSearchNearby;
     private View layoutContent;
@@ -74,7 +77,7 @@ public class SplashFragment extends Fragment {
     private String currentResultsTitleText;
 
     @Override
-    public void onCreate(@Nullable Bundle savedInstanceState) {
+    protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         if (savedInstanceState != null) {
             ArrayList<Car> savedCars = (ArrayList<Car>) savedInstanceState.getSerializable(STATE_NEAREST_CARS);
@@ -87,7 +90,18 @@ public class SplashFragment extends Fragment {
             shouldShowResults = savedInstanceState.getBoolean(STATE_RESULTS_VISIBLE, false);
             hasSearched = savedInstanceState.getBoolean(STATE_HAS_SEARCHED, false);
         }
-        fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireContext());
+        setTitle("");
+        setScreenContent(R.layout.fragment_splash, 0, false, false);
+        View view = findViewById(android.R.id.content);
+
+        notificationPermissionLauncher = registerForActivityResult(
+                new ActivityResultContracts.RequestPermission(),
+                isGranted -> Log.d("Permission", "Notification permission granted=" + isGranted)
+        );
+        askNotificationPermission();
+        signInAnonymously();
+
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
         locationPermissionLauncher = registerForActivityResult(
                 new ActivityResultContracts.RequestMultiplePermissions(),
                 permissions -> {
@@ -100,17 +114,6 @@ public class SplashFragment extends Fragment {
                     }
                 }
         );
-    }
-
-    @Nullable
-    @Override
-    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-        return inflater.inflate(R.layout.fragment_splash, container, false);
-    }
-
-    @Override
-    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
-        super.onViewCreated(view, savedInstanceState);
 
         btnSearchNearby = view.findViewById(R.id.btnSearchNearby);
         layoutContent = view.findViewById(R.id.layoutSplashContent);
@@ -124,21 +127,51 @@ public class SplashFragment extends Fragment {
         tvStatus = view.findViewById(R.id.tvSplashStatus);
         tvResultsTitle = view.findViewById(R.id.tvSplashResultsTitle);
         tvResultsSubtitle = view.findViewById(R.id.tvSplashResultsSubtitle);
-        RecyclerView rvCars = view.findViewById(R.id.rvSplashCars);
+        ListView rvCars = view.findViewById(R.id.rvSplashCars);
 
         adapter = new SplashCarAdapter(nearestCars, this::openCarDetails);
-        rvCars.setLayoutManager(new LinearLayoutManager(requireContext()));
         rvCars.setAdapter(adapter);
-        rvCars.setNestedScrollingEnabled(false);
 
         view.findViewById(R.id.btnSkipSplash).setOnClickListener(v -> openExplore());
         btnSearchNearby.setOnClickListener(v -> startSearchFlow());
         renderCurrentState();
     }
 
+    private void signInAnonymously() {
+        FirebaseAuth auth = FirebaseAuth.getInstance();
+        if (auth.getCurrentUser() == null) {
+            auth.signInAnonymously().addOnCompleteListener(this, task -> {
+                initializeFCM();
+                BookingSyncScheduler.requestImmediateSync(this, task.isSuccessful() ? "app_launch" : "app_launch_fallback");
+            });
+        } else {
+            initializeFCM();
+            BookingSyncScheduler.requestImmediateSync(this, "app_launch_existing_user");
+        }
+    }
+
+    private void initializeFCM() {
+        FirebaseMessaging.getInstance().getToken()
+                .addOnCompleteListener(task -> {
+                    if (!task.isSuccessful()) {
+                        Log.w("FCM", "Fetching FCM registration token failed", task.getException());
+                        return;
+                    }
+                    FirestoreHelper.updateUserToken(this, task.getResult());
+                });
+    }
+
+    private void askNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+                && !shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS)) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS);
+        }
+    }
+
     @Override
-    public void onDestroyView() {
-        super.onDestroyView();
+    protected void onDestroy() {
+        super.onDestroy();
         stopAnimator(idlePulseAnimator);
         stopAnimator(activePulseAnimator);
         idlePulseAnimator = null;
@@ -164,7 +197,7 @@ public class SplashFragment extends Fragment {
             runNearbySearch();
         } else if (shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_FINE_LOCATION)
                 || shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_COARSE_LOCATION)) {
-            new AlertDialog.Builder(requireContext())
+            new AlertDialog.Builder(SplashActivity.this)
                     .setTitle(R.string.location_permission_title)
                     .setMessage(R.string.location_permission_explore_message)
                     .setPositiveButton(R.string.allow_location, (dialog, which) -> requestLocationPermission())
@@ -183,8 +216,8 @@ public class SplashFragment extends Fragment {
     }
 
     private boolean hasLocationPermission() {
-        return ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-                || ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+        return ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                || ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
     }
 
     private void runNearbySearch() {
@@ -218,16 +251,16 @@ public class SplashFragment extends Fragment {
     }
 
     private void loadNearbyCars(@NonNull Location location) {
-        CarDiscoveryHelper.loadAvailableCars(requireContext(), System.currentTimeMillis(), new CarDiscoveryHelper.CarsResultCallback() {
+        CarDiscoveryHelper.loadAvailableCars(SplashActivity.this, System.currentTimeMillis(), new CarDiscoveryHelper.CarsResultCallback() {
             @Override
             public void onSuccess(List<Car> cars) {
-                if (!isAdded()) {
+                if (!!isFinishing()) {
                     return;
                 }
                 List<Car> sortedCars = CarDiscoveryHelper.filterAndSortCars(
                         cars,
                         location,
-                        AppPreferences.getSearchRadiusKm(requireContext()),
+                        AppPreferences.getSearchRadiusKm(SplashActivity.this),
                         null
                 );
                 showSearchResults(sortedCars);
@@ -235,7 +268,7 @@ public class SplashFragment extends Fragment {
 
             @Override
             public void onError(Exception error) {
-                if (!isAdded()) {
+                if (!!isFinishing()) {
                     return;
                 }
                 showSearchErrorState();
@@ -279,12 +312,12 @@ public class SplashFragment extends Fragment {
         layoutResults.setVisibility(View.GONE);
         applyStatusText(getString(R.string.splash_status_location_denied));
 
-        new AlertDialog.Builder(requireContext())
+        new AlertDialog.Builder(SplashActivity.this)
                 .setTitle(R.string.location_permission_title)
                 .setMessage(R.string.location_permission_settings_message)
                 .setPositiveButton(R.string.open_settings, (dialog, which) -> {
                     Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
-                    intent.setData(Uri.fromParts("package", requireContext().getPackageName(), null));
+                    intent.setData(Uri.fromParts("package", getPackageName(), null));
                     startActivity(intent);
                 })
                 .setNegativeButton(R.string.continue_without_location, null)
@@ -318,13 +351,13 @@ public class SplashFragment extends Fragment {
     }
 
     private void openExplore() {
-        Navigation.findNavController(requireView()).navigate(R.id.action_splashFragment_to_browseCarsFragment);
+        startActivity(new Intent(this, BrowseCarsActivity.class));
     }
 
     private void openCarDetails(Car car) {
-        Bundle bundle = new Bundle();
-        bundle.putSerializable("car", car);
-        Navigation.findNavController(requireView()).navigate(R.id.action_splashFragment_to_carDetailsFragment, bundle);
+        Intent intent = new Intent(this, CarDetailsActivity.class);
+        intent.putExtra("car", car);
+        startActivity(intent);
     }
 
     private void startIdlePulse() {
@@ -503,7 +536,7 @@ public class SplashFragment extends Fragment {
     }
 
     private int dpToPx(int dp) {
-        return Math.round(dp * requireContext().getResources().getDisplayMetrics().density);
+        return Math.round(dp * getResources().getDisplayMetrics().density);
     }
 
     private void updateCircleSizing(boolean compact) {

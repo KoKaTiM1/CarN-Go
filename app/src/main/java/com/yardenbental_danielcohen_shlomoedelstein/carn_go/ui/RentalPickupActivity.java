@@ -6,19 +6,13 @@ import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.provider.MediaStore;
 import android.util.Base64;
-import android.view.LayoutInflater;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.fragment.app.Fragment;
-import androidx.navigation.Navigation;
 
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.R;
@@ -28,7 +22,7 @@ import com.yardenbental_danielcohen_shlomoedelstein.carn_go.sync.BookingSyncSche
 
 import java.io.ByteArrayOutputStream;
 
-public class RentalCompletionFragment extends Fragment {
+public class RentalPickupActivity extends BaseNavigationActivity {
 
     private ImageView ivPhoto;
     private Button btnSubmit;
@@ -51,27 +45,24 @@ public class RentalCompletionFragment extends Fragment {
             }
     );
 
-    @Nullable
     @Override
-    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-        View view = inflater.inflate(R.layout.fragment_rental_completion, container, false);
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setTitle("Start Rental");
+        setScreenContent(R.layout.fragment_rental_pickup, 0, false, true);
+        View view = findViewById(android.R.id.content);
+        booking = (Booking) getIntent().getSerializableExtra("booking");
 
-        if (getArguments() != null) {
-            booking = (Booking) getArguments().getSerializable("booking");
-        }
+        ivPhoto = view.findViewById(R.id.ivPickupPhoto);
+        btnSubmit = view.findViewById(R.id.btnSubmitPickup);
+        layoutOverlay = view.findViewById(R.id.layoutPickupPhotoOverlay);
 
-        ivPhoto = view.findViewById(R.id.ivCompletionPhoto);
-        btnSubmit = view.findViewById(R.id.btnSubmitCompletion);
-        layoutOverlay = view.findViewById(R.id.layoutPhotoOverlay);
-
-        view.findViewById(R.id.cardCompletionPhoto).setOnClickListener(v -> {
+        view.findViewById(R.id.cardPickupPhoto).setOnClickListener(v -> {
             Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
             cameraLauncher.launch(takePictureIntent);
         });
 
-        btnSubmit.setOnClickListener(v -> completeRental());
-
-        return view;
+        btnSubmit.setOnClickListener(v -> submitPickupPhoto());
     }
 
     private String encodeImage(Bitmap bitmap) {
@@ -81,20 +72,20 @@ public class RentalCompletionFragment extends Fragment {
         return Base64.encodeToString(b, Base64.DEFAULT);
     }
 
-    private void completeRental() {
+    private void submitPickupPhoto() {
         if (base64Image == null || booking == null) return;
 
         btnSubmit.setEnabled(false);
         FirebaseFirestore db = FirebaseFirestore.getInstance();
         db.collection("bookings").document(booking.getId())
-                .update("status", BookingStatus.COMPLETED, "endPhotoUrl", base64Image)
+                .update("startPhotoUrl", base64Image, "status", BookingStatus.ACTIVE)
                 .addOnSuccessListener(aVoid -> {
-                    BookingSyncScheduler.requestImmediateSync(requireContext(), "rental_completed");
-                    Toast.makeText(getContext(), "Rental completed successfully!", Toast.LENGTH_SHORT).show();
-                    Navigation.findNavController(requireView()).navigateUp();
+                    BookingSyncScheduler.requestImmediateSync(this, "rental_pickup");
+                    Toast.makeText(this, "Pickup photo uploaded! You can now start your journey.", Toast.LENGTH_SHORT).show();
+                    finish();
                 })
                 .addOnFailureListener(e -> {
-                    Toast.makeText(getContext(), "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                     btnSubmit.setEnabled(true);
                 });
     }

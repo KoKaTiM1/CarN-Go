@@ -1,14 +1,13 @@
 package com.yardenbental_danielcohen_shlomoedelstein.carn_go.adapter;
 
+import android.content.Context;
 import android.util.Base64;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.BaseAdapter;
 import android.widget.ImageView;
 import android.widget.TextView;
-
-import androidx.annotation.NonNull;
-import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.R;
@@ -16,7 +15,7 @@ import com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Car;
 
 import java.util.List;
 
-public class SplashCarAdapter extends RecyclerView.Adapter<SplashCarAdapter.SplashCarViewHolder> {
+public class SplashCarAdapter extends BaseAdapter {
 
     public interface OnSplashCarClickListener {
         void onCarClick(Car car);
@@ -30,22 +29,40 @@ public class SplashCarAdapter extends RecyclerView.Adapter<SplashCarAdapter.Spla
         this.listener = listener;
     }
 
-    @NonNull
     @Override
-    public SplashCarViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_splash_car, parent, false);
-        return new SplashCarViewHolder(view);
+    public int getCount() {
+        return cars.size();
     }
 
     @Override
-    public void onBindViewHolder(@NonNull SplashCarViewHolder holder, int position) {
-        Car car = cars.get(position);
+    public Car getItem(int position) {
+        return cars.get(position);
+    }
+
+    @Override
+    public long getItemId(int position) {
+        return position;
+    }
+
+    @Override
+    public View getView(int position, View convertView, ViewGroup parent) {
+        SplashCarViewHolder holder;
+        if (convertView == null) {
+            convertView = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_splash_car, parent, false);
+            holder = new SplashCarViewHolder(convertView);
+            convertView.setTag(holder);
+        } else {
+            holder = (SplashCarViewHolder) convertView.getTag();
+        }
+
+        Context context = convertView.getContext();
+        Car car = getItem(position);
         holder.tvName.setText(car.getName());
-        holder.tvPrice.setText(holder.itemView.getContext().getString(R.string.price_per_hour, (int) car.getPricePerHour()));
+        holder.tvPrice.setText(context.getString(R.string.price_per_hour, (int) car.getPricePerHour()));
         holder.tvType.setText(car.getType());
 
         if (car.getDistanceKm() != null) {
-            holder.tvDistance.setText(holder.itemView.getContext().getString(R.string.distance_away_only, car.getDistanceKm()));
+            holder.tvDistance.setText(context.getString(R.string.distance_away_only, car.getDistanceKm()));
         } else {
             holder.tvDistance.setText(car.getLocation());
         }
@@ -53,7 +70,7 @@ public class SplashCarAdapter extends RecyclerView.Adapter<SplashCarAdapter.Spla
         String imagePath = car.getImageUrl();
         if (imagePath != null && !imagePath.isEmpty()) {
             if (imagePath.startsWith("http")) {
-                Glide.with(holder.itemView.getContext())
+                Glide.with(context)
                         .load(imagePath)
                         .placeholder(R.drawable.ic_car_placeholder)
                         .centerCrop()
@@ -61,7 +78,7 @@ public class SplashCarAdapter extends RecyclerView.Adapter<SplashCarAdapter.Spla
             } else {
                 try {
                     byte[] decodedString = Base64.decode(imagePath, Base64.DEFAULT);
-                    Glide.with(holder.itemView.getContext())
+                    Glide.with(context)
                             .asBitmap()
                             .load(decodedString)
                             .placeholder(R.drawable.ic_car_placeholder)
@@ -75,23 +92,18 @@ public class SplashCarAdapter extends RecyclerView.Adapter<SplashCarAdapter.Spla
             holder.ivImage.setImageResource(R.drawable.ic_car_placeholder);
         }
 
-        holder.itemView.setOnClickListener(v -> listener.onCarClick(car));
+        convertView.setOnClickListener(v -> listener.onCarClick(car));
+        return convertView;
     }
 
-    @Override
-    public int getItemCount() {
-        return cars.size();
-    }
-
-    static class SplashCarViewHolder extends RecyclerView.ViewHolder {
+    static class SplashCarViewHolder {
         private final ImageView ivImage;
         private final TextView tvName;
         private final TextView tvDistance;
         private final TextView tvPrice;
         private final TextView tvType;
 
-        public SplashCarViewHolder(@NonNull View itemView) {
-            super(itemView);
+        SplashCarViewHolder(View itemView) {
             ivImage = itemView.findViewById(R.id.ivSplashCarImage);
             tvName = itemView.findViewById(R.id.tvSplashCarName);
             tvDistance = itemView.findViewById(R.id.tvSplashCarDistance);

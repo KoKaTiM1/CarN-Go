@@ -167,12 +167,13 @@
 
             </RelativeLayout>
 
-            <androidx.recyclerview.widget.RecyclerView
+            <ListView
                 android:id="@+id/rvCars"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
-                android:nestedScrollingEnabled="false"
+                android:divider="@android:color/transparent"
+                android:dividerHeight="12dp"
                 tools:listitem="@layout/item_car" />
 
         </LinearLayout>

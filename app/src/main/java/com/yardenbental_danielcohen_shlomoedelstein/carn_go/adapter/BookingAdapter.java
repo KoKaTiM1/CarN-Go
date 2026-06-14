@@ -1,15 +1,14 @@
 package com.yardenbental_danielcohen_shlomoedelstein.carn_go.adapter;
 
+import android.content.Context;
 import android.util.Base64;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.BaseAdapter;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
-
-import androidx.annotation.NonNull;
-import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.R;
@@ -19,10 +18,10 @@ import com.yardenbental_danielcohen_shlomoedelstein.carn_go.sync.BookingStatus;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import java.util.Locale;
+import java.util.concurrent.TimeUnit;
 
-public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingViewHolder> {
+public class BookingAdapter extends BaseAdapter {
 
     public interface OnBookingActionListener {
         void onApprove(Booking booking);
@@ -32,9 +31,9 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
         void onViewPhotos(Booking booking);
     }
 
-    private List<Booking> bookingList;
-    private String currentUserId;
-    private OnBookingActionListener listener;
+    private final List<Booking> bookingList;
+    private final String currentUserId;
+    private final OnBookingActionListener listener;
 
     public BookingAdapter(List<Booking> bookingList, String currentUserId, OnBookingActionListener listener) {
         this.bookingList = bookingList;
@@ -42,31 +41,46 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
         this.listener = listener;
     }
 
-    @NonNull
     @Override
-    public BookingViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_booking, parent, false);
-        return new BookingViewHolder(view);
+    public int getCount() {
+        return bookingList.size();
     }
 
     @Override
-    public void onBindViewHolder(@NonNull BookingViewHolder holder, int position) {
-        Booking booking = bookingList.get(position);
+    public Booking getItem(int position) {
+        return bookingList.get(position);
+    }
 
+    @Override
+    public long getItemId(int position) {
+        return position;
+    }
+
+    @Override
+    public View getView(int position, View convertView, ViewGroup parent) {
+        BookingViewHolder holder;
+        if (convertView == null) {
+            convertView = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_booking, parent, false);
+            holder = new BookingViewHolder(convertView);
+            convertView.setTag(holder);
+        } else {
+            holder = (BookingViewHolder) convertView.getTag();
+        }
+
+        Context context = convertView.getContext();
+        Booking booking = getItem(position);
         holder.tvCarName.setText(booking.getCarName());
-        
-        // Status display
+
         String status = BookingStatus.normalize(booking.getStatus());
         holder.tvStatus.setText(status);
         if (BookingStatus.APPROVED.equals(status) || BookingStatus.ACTIVE.equals(status)) {
-            holder.tvStatus.setTextColor(holder.itemView.getContext().getColor(R.color.primary));
+            holder.tvStatus.setTextColor(context.getColor(R.color.primary));
         } else if (BookingStatus.RETURN_PENDING.equals(status) || BookingStatus.REJECTED.equals(status)) {
-            holder.tvStatus.setTextColor(holder.itemView.getContext().getColor(R.color.error));
+            holder.tvStatus.setTextColor(context.getColor(R.color.error));
         } else {
-            holder.tvStatus.setTextColor(holder.itemView.getContext().getColor(R.color.secondary));
+            holder.tvStatus.setTextColor(context.getColor(R.color.secondary));
         }
 
-        // Action buttons visibility: Only show if I am the owner and it is PENDING
         if (currentUserId != null && currentUserId.equals(booking.getOwnerId()) && BookingStatus.PENDING.equals(status)) {
             holder.layoutActions.setVisibility(View.VISIBLE);
             holder.btnApprove.setVisibility(View.VISIBLE);
@@ -103,68 +117,56 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
             holder.layoutActions.setVisibility(View.GONE);
         }
 
-        // Make the entire card clickable to view photos if completed
         if (BookingStatus.COMPLETED.equals(status)) {
-            holder.itemView.setOnClickListener(v -> {
+            convertView.setOnClickListener(v -> {
                 if (listener != null) listener.onViewPhotos(booking);
             });
         } else {
-            holder.itemView.setOnClickListener(null);
+            convertView.setOnClickListener(null);
         }
 
         holder.btnApprove.setOnClickListener(v -> {
             if (listener != null) listener.onApprove(booking);
         });
-
         holder.btnReject.setOnClickListener(v -> {
             if (listener != null) listener.onReject(booking);
         });
-
         holder.btnPickupPhoto.setOnClickListener(v -> {
             if (listener != null) listener.onPickupPhoto(booking);
         });
-
         holder.btnFinish.setOnClickListener(v -> {
             if (listener != null) listener.onFinish(booking);
         });
-
         holder.btnViewPhotos.setOnClickListener(v -> {
             if (listener != null) listener.onViewPhotos(booking);
         });
-        
+
         long durationMillis = booking.getEndTime() - booking.getStartTime();
         long hours = TimeUnit.MILLISECONDS.toHours(durationMillis);
         if (durationMillis % TimeUnit.HOURS.toMillis(1) > 0) {
             hours++;
         }
-        
+
         holder.tvDuration.setText("Duration: " + hours + (hours == 1 ? " hour" : " hours"));
         holder.tvTotal.setText(String.format(Locale.getDefault(), "$%.2f", booking.getTotalCost()));
 
         SimpleDateFormat sdf = new SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault());
-        String startStr = sdf.format(new Date(booking.getStartTime()));
-        String endStr = sdf.format(new Date(booking.getEndTime()));
-        holder.tvDate.setText(startStr + " - " + endStr);
+        holder.tvDate.setText(sdf.format(new Date(booking.getStartTime())) + " - " + sdf.format(new Date(booking.getEndTime())));
 
         String imagePath = booking.getCarImageUrl();
         if (imagePath != null && !imagePath.isEmpty()) {
             if (imagePath.startsWith("http")) {
-                Glide.with(holder.itemView.getContext())
+                Glide.with(context)
                         .load(imagePath)
                         .centerCrop()
                         .into(holder.ivCarImage);
             } else {
-                // For Base64 strings, we can pass them directly if they have the data:image prefix,
-                // but since these are raw Base64, we decode. 
-                // To keep onBindViewHolder fast, we let Glide's background threads handle it by passing the string if supported,
-                // or we can use a small optimization. Glide's load(byte[]) is good, but decode is still on UI.
-                // For now, we'll keep it as is but ensure it's wrapped safely.
                 try {
                     byte[] decodedString = Base64.decode(imagePath, Base64.DEFAULT);
-                    Glide.with(holder.itemView.getContext())
+                    Glide.with(context)
                             .asBitmap()
                             .load(decodedString)
-                            .placeholder(R.drawable.ic_car_placeholder) // Add a placeholder
+                            .placeholder(R.drawable.ic_car_placeholder)
                             .centerCrop()
                             .into(holder.ivCarImage);
                 } catch (Exception e) {
@@ -174,21 +176,17 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
         } else {
             holder.ivCarImage.setImageResource(R.drawable.ic_car_placeholder);
         }
+
+        return convertView;
     }
 
-    @Override
-    public int getItemCount() {
-        return bookingList.size();
-    }
-
-    static class BookingViewHolder extends RecyclerView.ViewHolder {
+    static class BookingViewHolder {
         ImageView ivCarImage;
         TextView tvCarName, tvDuration, tvDate, tvTotal, tvStatus;
         View layoutActions;
         Button btnApprove, btnReject, btnPickupPhoto, btnFinish, btnViewPhotos;
 
-        public BookingViewHolder(@NonNull View itemView) {
-            super(itemView);
+        BookingViewHolder(View itemView) {
             ivCarImage = itemView.findViewById(R.id.ivBookingImage);
             tvCarName = itemView.findViewById(R.id.tvBookingCarName);
             tvDuration = itemView.findViewById(R.id.tvBookingDuration);

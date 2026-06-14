@@ -19,8 +19,8 @@ import android.util.Base64;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
+import android.widget.ListView;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
@@ -32,10 +32,6 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.core.content.ContextCompat;
-import androidx.fragment.app.Fragment;
-import androidx.navigation.Navigation;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
@@ -69,7 +65,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-public class MyCarsFragment extends Fragment {
+public class MyCarsActivity extends BaseNavigationActivity {
 
     private static class LocationDraft {
         String displayName;
@@ -91,7 +87,7 @@ public class MyCarsFragment extends Fragment {
     private ActivityResultLauncher<String[]> locationPermissionLauncher;
     private FusedLocationProviderClient fusedLocationClient;
     private Runnable pendingLocationAction;
-    private RecyclerView rvMyCars;
+    private ListView rvMyCars;
     private CarAdapter adapter;
     private final List<Car> myCarsList = new ArrayList<>();
     private View layoutEmpty;
@@ -101,10 +97,14 @@ public class MyCarsFragment extends Fragment {
     private long selectedEndTimestamp = 0;
 
     @Override
-    public void onCreate(@Nullable Bundle savedInstanceState) {
+    protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireContext());
+        setTitle("My Cars");
+        setScreenContent(R.layout.fragment_my_cars, R.id.nav_my_cars, true, true);
+        View view = findViewById(android.R.id.content);
+
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
 
         pickImageLauncher = registerForActivityResult(
                 new ActivityResultContracts.GetContent(),
@@ -143,24 +143,17 @@ public class MyCarsFragment extends Fragment {
                     pendingLocationAction = null;
                 }
         );
-    }
-
-    @Nullable
-    @Override
-    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-        View view = inflater.inflate(R.layout.fragment_my_cars, container, false);
 
         rvMyCars = view.findViewById(R.id.rvMyCars);
         layoutEmpty = view.findViewById(R.id.layoutEmpty);
         addCarBtn = view.findViewById(R.id.btnAddCar);
 
-        rvMyCars.setLayoutManager(new LinearLayoutManager(getContext()));
         adapter = new CarAdapter(myCarsList, new CarAdapter.OnCarClickListener() {
             @Override
             public void onCarClick(Car car) {
-                Bundle bundle = new Bundle();
-                bundle.putSerializable("car", car);
-                Navigation.findNavController(view).navigate(R.id.action_myCarsFragment_to_carDetailsFragment, bundle);
+                Intent intent = new Intent(MyCarsActivity.this, CarDetailsActivity.class);
+                intent.putExtra("car", car);
+                startActivity(intent);
             }
 
             @Override
@@ -179,7 +172,7 @@ public class MyCarsFragment extends Fragment {
         if (addCarBtn != null) {
             addCarBtn.setOnClickListener(v -> {
                 String[] options = {getString(R.string.take_photo), getString(R.string.choose_gallery)};
-                new AlertDialog.Builder(requireContext())
+                new AlertDialog.Builder(MyCarsActivity.this)
                         .setTitle(R.string.add_car_photo)
                         .setItems(options, (dialog, which) -> {
                             if (which == 0) {
@@ -193,11 +186,10 @@ public class MyCarsFragment extends Fragment {
             });
         }
         fetchMyCars();
-        return view;
     }
 
     private void fetchMyCars() {
-        String currentUserId = FirestoreHelper.getCurrentUserId(getContext());
+        String currentUserId = FirestoreHelper.getCurrentUserId(MyCarsActivity.this);
         if (currentUserId == null) return;
 
         FirebaseFirestore db = FirebaseFirestore.getInstance();
@@ -243,7 +235,7 @@ public class MyCarsFragment extends Fragment {
                                     availableTo != null ? availableTo : 0
                             ));
                         } catch (Exception e) {
-                            Log.e("MyCarsFragment", "Error parsing car", e);
+                            Log.e("MyCarsActivity", "Error parsing car", e);
                         }
                     }
 
@@ -256,11 +248,11 @@ public class MyCarsFragment extends Fragment {
                     }
                     adapter.notifyDataSetChanged();
                 })
-                .addOnFailureListener(e -> Toast.makeText(getContext(), R.string.failed_load_cars, Toast.LENGTH_SHORT).show());
+                .addOnFailureListener(e -> Toast.makeText(MyCarsActivity.this, R.string.failed_load_cars, Toast.LENGTH_SHORT).show());
     }
 
     private void showEditCarDialog(Car car) {
-        View dialogView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_add_car, null);
+        View dialogView = LayoutInflater.from(MyCarsActivity.this).inflate(R.layout.dialog_add_car, null);
         TextInputEditText etName = dialogView.findViewById(R.id.etCarName);
         TextInputEditText etPrice = dialogView.findViewById(R.id.etPrice);
         TextInputEditText etLocation = dialogView.findViewById(R.id.etLocation);
@@ -292,7 +284,7 @@ public class MyCarsFragment extends Fragment {
         btnPickStart.setOnClickListener(v -> pickDateTime(true, tvAvailability));
         btnPickEnd.setOnClickListener(v -> pickDateTime(false, tvAvailability));
 
-        AlertDialog dialog = new AlertDialog.Builder(requireContext())
+        AlertDialog dialog = new AlertDialog.Builder(MyCarsActivity.this)
                 .setTitle(R.string.edit_car_details)
                 .setView(dialogView)
                 .setPositiveButton(R.string.update, null)
@@ -333,29 +325,29 @@ public class MyCarsFragment extends Fragment {
         db.collection("cars").document(carId)
                 .update(updates)
                 .addOnSuccessListener(aVoid -> {
-                    Toast.makeText(getContext(), R.string.car_updated, Toast.LENGTH_SHORT).show();
+                    Toast.makeText(MyCarsActivity.this, R.string.car_updated, Toast.LENGTH_SHORT).show();
                     fetchMyCars();
                 })
-                .addOnFailureListener(e -> Toast.makeText(getContext(), getString(R.string.error_updating, e.getMessage()), Toast.LENGTH_SHORT).show());
+                .addOnFailureListener(e -> Toast.makeText(MyCarsActivity.this, getString(R.string.error_updating, e.getMessage()), Toast.LENGTH_SHORT).show());
     }
 
     private void showDeleteConfirmationDialog(Car car) {
-        new AlertDialog.Builder(requireContext())
+        new AlertDialog.Builder(MyCarsActivity.this)
                 .setTitle(R.string.delete_car)
                 .setMessage(R.string.delete_confirmation)
                 .setPositiveButton(R.string.delete, (dialog, which) -> FirebaseFirestore.getInstance().collection("cars").document(car.getId())
                         .delete()
                         .addOnSuccessListener(aVoid -> {
-                            Toast.makeText(getContext(), R.string.car_deleted, Toast.LENGTH_SHORT).show();
+                            Toast.makeText(MyCarsActivity.this, R.string.car_deleted, Toast.LENGTH_SHORT).show();
                             fetchMyCars();
                         })
-                        .addOnFailureListener(e -> Toast.makeText(getContext(), getString(R.string.error_deleting, e.getMessage()), Toast.LENGTH_SHORT).show()))
+                        .addOnFailureListener(e -> Toast.makeText(MyCarsActivity.this, getString(R.string.error_deleting, e.getMessage()), Toast.LENGTH_SHORT).show()))
                 .setNegativeButton(R.string.cancel, null)
                 .show();
     }
 
     private void showAddCarDialog(Object imageSource) {
-        View dialogView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_add_car, null);
+        View dialogView = LayoutInflater.from(MyCarsActivity.this).inflate(R.layout.dialog_add_car, null);
         TextInputEditText etName = dialogView.findViewById(R.id.etCarName);
         TextInputEditText etPrice = dialogView.findViewById(R.id.etPrice);
         TextInputEditText etLocation = dialogView.findViewById(R.id.etLocation);
@@ -380,7 +372,7 @@ public class MyCarsFragment extends Fragment {
         btnPickStart.setOnClickListener(v -> pickDateTime(true, tvAvailability));
         btnPickEnd.setOnClickListener(v -> pickDateTime(false, tvAvailability));
 
-        AlertDialog dialog = new AlertDialog.Builder(requireContext())
+        AlertDialog dialog = new AlertDialog.Builder(MyCarsActivity.this)
                 .setTitle(R.string.add_new_car)
                 .setView(dialogView)
                 .setPositiveButton(R.string.add, null)
@@ -454,7 +446,7 @@ public class MyCarsFragment extends Fragment {
                 if (isStart) {
                     long chosenStart = calendar.getTimeInMillis();
                     if (chosenStart < minimumSelectableTimestamp) {
-                        Toast.makeText(getContext(), R.string.error_start_in_past, Toast.LENGTH_SHORT).show();
+                        Toast.makeText(MyCarsActivity.this, R.string.error_start_in_past, Toast.LENGTH_SHORT).show();
                         return;
                     }
                     selectedStartTimestamp = chosenStart;
@@ -464,16 +456,16 @@ public class MyCarsFragment extends Fragment {
                 } else {
                     long chosenEnd = calendar.getTimeInMillis();
                     if (selectedStartTimestamp != 0 && chosenEnd <= selectedStartTimestamp) {
-                        Toast.makeText(getContext(), R.string.error_end_before_start, Toast.LENGTH_SHORT).show();
+                        Toast.makeText(MyCarsActivity.this, R.string.error_end_before_start, Toast.LENGTH_SHORT).show();
                         return;
                     }
                     selectedEndTimestamp = chosenEnd;
                 }
                 updateAvailabilityText(tvDisplay);
             });
-            timePicker.show(getParentFragmentManager(), "TIME_PICKER");
+            timePicker.show(getSupportFragmentManager(), "TIME_PICKER");
         });
-        datePicker.show(getParentFragmentManager(), "DATE_PICKER");
+        datePicker.show(getSupportFragmentManager(), "DATE_PICKER");
     }
 
     private void updateAvailabilityText(TextView tvDisplay) {
@@ -538,7 +530,7 @@ public class MyCarsFragment extends Fragment {
         String fuelType = safeText(etFuelType);
 
         if (name.isEmpty() || priceStr.isEmpty() || location.isEmpty()) {
-            Toast.makeText(getContext(), R.string.error_required_fields, Toast.LENGTH_SHORT).show();
+            Toast.makeText(MyCarsActivity.this, R.string.error_required_fields, Toast.LENGTH_SHORT).show();
             return null;
         }
 
@@ -547,7 +539,7 @@ public class MyCarsFragment extends Fragment {
             int seats = seatsStr.isEmpty() ? 5 : Integer.parseInt(seatsStr);
             return new CarFormData(name, price, location, type, transmission, seats, fuelType);
         } catch (NumberFormatException error) {
-            Toast.makeText(getContext(), R.string.error_invalid_input, Toast.LENGTH_SHORT).show();
+            Toast.makeText(MyCarsActivity.this, R.string.error_invalid_input, Toast.LENGTH_SHORT).show();
             return null;
         }
     }
@@ -555,9 +547,9 @@ public class MyCarsFragment extends Fragment {
     private void setupCarChoiceDropdowns(MaterialAutoCompleteTextView typeField,
                                          MaterialAutoCompleteTextView transmissionField,
                                          MaterialAutoCompleteTextView fuelTypeField) {
-        typeField.setAdapter(new ArrayAdapter<>(requireContext(), android.R.layout.simple_list_item_1, getResources().getStringArray(R.array.car_type_options)));
-        transmissionField.setAdapter(new ArrayAdapter<>(requireContext(), android.R.layout.simple_list_item_1, getResources().getStringArray(R.array.transmission_options)));
-        fuelTypeField.setAdapter(new ArrayAdapter<>(requireContext(), android.R.layout.simple_list_item_1, getResources().getStringArray(R.array.fuel_type_options)));
+        typeField.setAdapter(new ArrayAdapter<>(MyCarsActivity.this, android.R.layout.simple_list_item_1, getResources().getStringArray(R.array.car_type_options)));
+        transmissionField.setAdapter(new ArrayAdapter<>(MyCarsActivity.this, android.R.layout.simple_list_item_1, getResources().getStringArray(R.array.transmission_options)));
+        fuelTypeField.setAdapter(new ArrayAdapter<>(MyCarsActivity.this, android.R.layout.simple_list_item_1, getResources().getStringArray(R.array.fuel_type_options)));
 
         setupDropdownField(typeField);
         setupDropdownField(transmissionField);
@@ -613,15 +605,15 @@ public class MyCarsFragment extends Fragment {
 
     private boolean validateAvailabilitySelection() {
         if (selectedStartTimestamp == 0 || selectedEndTimestamp == 0) {
-            Toast.makeText(getContext(), R.string.error_required_fields, Toast.LENGTH_SHORT).show();
+            Toast.makeText(MyCarsActivity.this, R.string.error_required_fields, Toast.LENGTH_SHORT).show();
             return false;
         }
         if (selectedStartTimestamp < getMinimumSelectableTimestamp()) {
-            Toast.makeText(getContext(), R.string.error_start_in_past, Toast.LENGTH_SHORT).show();
+            Toast.makeText(MyCarsActivity.this, R.string.error_start_in_past, Toast.LENGTH_SHORT).show();
             return false;
         }
         if (selectedEndTimestamp <= selectedStartTimestamp) {
-            Toast.makeText(getContext(), R.string.error_end_before_start, Toast.LENGTH_SHORT).show();
+            Toast.makeText(MyCarsActivity.this, R.string.error_end_before_start, Toast.LENGTH_SHORT).show();
             return false;
         }
         return true;
@@ -634,20 +626,20 @@ public class MyCarsFragment extends Fragment {
 
     private void uploadCarData(String carName, double price, String location, Double latitude, Double longitude, String type, String transmission, int seats, String fuelType, Object imageSource, long start, long end) {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
-        Toast.makeText(getContext(), R.string.processing_listing, Toast.LENGTH_SHORT).show();
+        Toast.makeText(MyCarsActivity.this, R.string.processing_listing, Toast.LENGTH_SHORT).show();
 
         executorService.execute(() -> {
             try {
                 Bitmap bitmap = null;
                 if (imageSource instanceof Uri) {
-                    InputStream inputStream = requireContext().getContentResolver().openInputStream((Uri) imageSource);
+                    InputStream inputStream = getContentResolver().openInputStream((Uri) imageSource);
                     bitmap = BitmapFactory.decodeStream(inputStream);
                 } else if (imageSource instanceof Bitmap) {
                     bitmap = (Bitmap) imageSource;
                 }
 
                 if (bitmap == null) {
-                    mainHandler.post(() -> Toast.makeText(getContext(), R.string.error_image_processing, Toast.LENGTH_SHORT).show());
+                    mainHandler.post(() -> Toast.makeText(MyCarsActivity.this, R.string.error_image_processing, Toast.LENGTH_SHORT).show());
                     return;
                 }
 
@@ -666,7 +658,7 @@ public class MyCarsFragment extends Fragment {
                 carData.put("longitude", longitude);
                 carData.put("type", type);
                 carData.put("imageUrl", encodedImage);
-                carData.put("ownerId", FirestoreHelper.getCurrentUserId(getContext()));
+                carData.put("ownerId", FirestoreHelper.getCurrentUserId(MyCarsActivity.this));
                 carData.put("rating", 5.0);
                 carData.put("transmission", transmission);
                 carData.put("seats", seats);
@@ -676,14 +668,14 @@ public class MyCarsFragment extends Fragment {
 
                 db.collection("cars").add(carData)
                         .addOnSuccessListener(documentReference -> mainHandler.post(() -> {
-                            Toast.makeText(getContext(), R.string.listing_added, Toast.LENGTH_SHORT).show();
+                            Toast.makeText(MyCarsActivity.this, R.string.listing_added, Toast.LENGTH_SHORT).show();
                             fetchMyCars();
                         }))
-                        .addOnFailureListener(e -> mainHandler.post(() -> Toast.makeText(getContext(), getString(R.string.firestore_error, e.getMessage()), Toast.LENGTH_SHORT).show()));
+                        .addOnFailureListener(e -> mainHandler.post(() -> Toast.makeText(MyCarsActivity.this, getString(R.string.firestore_error, e.getMessage()), Toast.LENGTH_SHORT).show()));
 
             } catch (Exception e) {
-                Log.e("MyCarsFragment", "Upload failed", e);
-                mainHandler.post(() -> Toast.makeText(getContext(), R.string.error_image_processing, Toast.LENGTH_SHORT).show());
+                Log.e("MyCarsActivity", "Upload failed", e);
+                mainHandler.post(() -> Toast.makeText(MyCarsActivity.this, R.string.error_image_processing, Toast.LENGTH_SHORT).show());
             }
         });
     }
@@ -694,7 +686,7 @@ public class MyCarsFragment extends Fragment {
             locationDraft.latitude = location.getLatitude();
             locationDraft.longitude = location.getLongitude();
             locationField.setText(resolvedLocation);
-            Toast.makeText(getContext(), R.string.location_detected, Toast.LENGTH_SHORT).show();
+            Toast.makeText(MyCarsActivity.this, R.string.location_detected, Toast.LENGTH_SHORT).show();
         })));
     }
 
@@ -707,7 +699,7 @@ public class MyCarsFragment extends Fragment {
         pendingLocationAction = onGranted;
         if (shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_FINE_LOCATION)
                 || shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_COARSE_LOCATION)) {
-            new AlertDialog.Builder(requireContext())
+            new AlertDialog.Builder(MyCarsActivity.this)
                     .setTitle(R.string.location_permission_title)
                     .setMessage(R.string.location_permission_owner_message)
                     .setPositiveButton(R.string.allow_location, (dialog, which) -> locationPermissionLauncher.launch(new String[]{
@@ -725,8 +717,8 @@ public class MyCarsFragment extends Fragment {
     }
 
     private boolean hasLocationPermission() {
-        return ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-                || ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+        return ContextCompat.checkSelfPermission(MyCarsActivity.this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                || ContextCompat.checkSelfPermission(MyCarsActivity.this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
     }
 
     private void requestCurrentLocation(LocationCallback callback) {
@@ -744,13 +736,13 @@ public class MyCarsFragment extends Fragment {
                                     if (lastLocation != null) {
                                         callback.onLocationResolved(lastLocation);
                                     } else {
-                                        Toast.makeText(getContext(), R.string.location_unavailable, Toast.LENGTH_SHORT).show();
+                                        Toast.makeText(MyCarsActivity.this, R.string.location_unavailable, Toast.LENGTH_SHORT).show();
                                     }
                                 })
-                                .addOnFailureListener(e -> Toast.makeText(getContext(), R.string.location_unavailable, Toast.LENGTH_SHORT).show());
+                                .addOnFailureListener(e -> Toast.makeText(MyCarsActivity.this, R.string.location_unavailable, Toast.LENGTH_SHORT).show());
                     }
                 })
-                .addOnFailureListener(e -> Toast.makeText(getContext(), R.string.location_unavailable, Toast.LENGTH_SHORT).show());
+                .addOnFailureListener(e -> Toast.makeText(MyCarsActivity.this, R.string.location_unavailable, Toast.LENGTH_SHORT).show());
     }
 
     private void reverseGeocode(Location location, AddressCallback callback) {
@@ -758,14 +750,14 @@ public class MyCarsFragment extends Fragment {
             String resolvedLocation = getString(R.string.current_location_label);
             try {
                 if (Geocoder.isPresent()) {
-                    Geocoder geocoder = new Geocoder(requireContext(), Locale.getDefault());
+                    Geocoder geocoder = new Geocoder(MyCarsActivity.this, Locale.getDefault());
                     List<Address> addresses = geocoder.getFromLocation(location.getLatitude(), location.getLongitude(), 1);
                     if (addresses != null && !addresses.isEmpty()) {
                         resolvedLocation = formatAddress(addresses.get(0));
                     }
                 }
             } catch (Exception e) {
-                Log.w("MyCarsFragment", "Failed to reverse geocode location", e);
+                Log.w("MyCarsActivity", "Failed to reverse geocode location", e);
             }
 
             String finalResolvedLocation = resolvedLocation;
@@ -793,12 +785,12 @@ public class MyCarsFragment extends Fragment {
     }
 
     private void showLocationPermissionSettingsDialog() {
-        new AlertDialog.Builder(requireContext())
+        new AlertDialog.Builder(MyCarsActivity.this)
                 .setTitle(R.string.location_permission_title)
                 .setMessage(R.string.location_permission_settings_message)
                 .setPositiveButton(R.string.open_settings, (dialog, which) -> {
                     Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
-                    intent.setData(Uri.fromParts("package", requireContext().getPackageName(), null));
+                    intent.setData(Uri.fromParts("package", getPackageName(), null));
                     startActivity(intent);
                 })
                 .setNegativeButton(R.string.cancel, null)

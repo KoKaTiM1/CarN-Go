@@ -13,22 +13,16 @@ import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
 import android.util.Log;
-import android.view.LayoutInflater;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
+import android.widget.ListView;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
-import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.core.content.ContextCompat;
-import androidx.fragment.app.Fragment;
-import androidx.navigation.Navigation;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
@@ -46,7 +40,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-public class BrowseCarsFragment extends Fragment {
+public class BrowseCarsActivity extends BaseNavigationActivity {
 
     private static final long REFRESH_INTERVAL = 600000;
     private static final long MIN_RELOAD_GAP_MS = 1500;
@@ -73,6 +67,7 @@ public class BrowseCarsFragment extends Fragment {
     private long lastLoadCompletedAt = 0L;
     private long lastLocationRefreshAt = 0L;
     private int lastAppliedRadiusKm = Integer.MIN_VALUE;
+
     private final BroadcastReceiver syncReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -81,9 +76,13 @@ public class BrowseCarsFragment extends Fragment {
     };
 
     @Override
-    public void onCreate(@Nullable Bundle savedInstanceState) {
+    protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireContext());
+        setTitle("Browse Cars");
+        setScreenContent(R.layout.fragment_browse_cars, R.id.nav_browse_cars, true, true);
+        View view = findViewById(android.R.id.content);
+
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
         locationPermissionLauncher = registerForActivityResult(
                 new ActivityResultContracts.RequestMultiplePermissions(),
                 permissions -> {
@@ -98,12 +97,6 @@ public class BrowseCarsFragment extends Fragment {
                     }
                 }
         );
-    }
-
-    @Nullable
-    @Override
-    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-        View view = inflater.inflate(R.layout.fragment_browse_cars, container, false);
 
         swipeRefresh = view.findViewById(R.id.swipeRefresh);
         if (swipeRefresh != null) {
@@ -111,13 +104,11 @@ public class BrowseCarsFragment extends Fragment {
             swipeRefresh.setRefreshing(false);
         }
 
-        RecyclerView rvCars = view.findViewById(R.id.rvCars);
-        rvCars.setLayoutManager(new LinearLayoutManager(getContext()));
-
+        ListView rvCars = view.findViewById(R.id.rvCars);
         adapter = new CarAdapter(cars, car -> {
-            Bundle bundle = new Bundle();
-            bundle.putSerializable("car", car);
-            Navigation.findNavController(view).navigate(R.id.action_browseCarsFragment_to_carDetailsFragment, bundle);
+            Intent intent = new Intent(this, CarDetailsActivity.class);
+            intent.putExtra("car", car);
+            startActivity(intent);
         });
         rvCars.setAdapter(adapter);
 
@@ -125,15 +116,13 @@ public class BrowseCarsFragment extends Fragment {
         dropdownTransmissionFilter = view.findViewById(R.id.dropdownTransmissionFilter);
         dropdownFuelFilter = view.findViewById(R.id.dropdownFuelFilter);
         setupFilterDropdowns();
-
-        return view;
     }
 
     @Override
     public void onResume() {
         super.onResume();
         ContextCompat.registerReceiver(
-                requireContext(),
+                this,
                 syncReceiver,
                 new IntentFilter(BookingSyncScheduler.ACTION_SYNC_COMPLETED),
                 ContextCompat.RECEIVER_NOT_EXPORTED
@@ -148,7 +137,7 @@ public class BrowseCarsFragment extends Fragment {
         stopPeriodicRefresh();
         setRefreshingState(false);
         try {
-            requireContext().unregisterReceiver(syncReceiver);
+            unregisterReceiver(syncReceiver);
         } catch (IllegalArgumentException ignored) {
         }
     }
@@ -192,7 +181,7 @@ public class BrowseCarsFragment extends Fragment {
     }
 
     private void refreshOnResume() {
-        int radiusKm = AppPreferences.getSearchRadiusKm(requireContext());
+        int radiusKm = AppPreferences.getSearchRadiusKm(this);
         boolean radiusChanged = radiusKm != lastAppliedRadiusKm;
         boolean needsInitialLoad = allCars.isEmpty();
         boolean staleData = System.currentTimeMillis() - lastLoadCompletedAt >= REFRESH_INTERVAL;
@@ -221,7 +210,7 @@ public class BrowseCarsFragment extends Fragment {
 
         if (shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_FINE_LOCATION)
                 || shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_COARSE_LOCATION)) {
-            new AlertDialog.Builder(requireContext())
+            new AlertDialog.Builder(this)
                     .setTitle(R.string.location_permission_title)
                     .setMessage(R.string.location_permission_explore_message)
                     .setPositiveButton(R.string.allow_location, (dialog, which) -> requestLocationPermission())
@@ -240,8 +229,8 @@ public class BrowseCarsFragment extends Fragment {
     }
 
     private boolean hasLocationPermission() {
-        return ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-                || ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+        return ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                || ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
     }
 
     private void startLocationUpdates() {
@@ -255,12 +244,9 @@ public class BrowseCarsFragment extends Fragment {
         isLoadingCars = true;
         lastLoadStartedAt = System.currentTimeMillis();
         setRefreshingState(true);
-
         maybeRefreshLocation();
 
-        long currentTime = System.currentTimeMillis();
-
-        CarDiscoveryHelper.loadAvailableCars(requireContext(), currentTime, new CarDiscoveryHelper.CarsResultCallback() {
+        CarDiscoveryHelper.loadAvailableCars(this, System.currentTimeMillis(), new CarDiscoveryHelper.CarsResultCallback() {
             @Override
             public void onSuccess(List<Car> loadedCars) {
                 allCars.clear();
@@ -271,19 +257,15 @@ public class BrowseCarsFragment extends Fragment {
 
             @Override
             public void onError(Exception error) {
-                Log.e("BrowseCarsFragment", "Error loading cars", error);
-                Toast.makeText(getContext(), R.string.failed_to_load_cars, Toast.LENGTH_SHORT).show();
+                Log.e("BrowseCarsActivity", "Error loading cars", error);
+                Toast.makeText(BrowseCarsActivity.this, R.string.failed_to_load_cars, Toast.LENGTH_SHORT).show();
                 finishLoading();
             }
         });
     }
 
     private void applyFiltersAndSort() {
-        if (!isAdded()) {
-            return;
-        }
-
-        int radiusKm = AppPreferences.getSearchRadiusKm(requireContext());
+        int radiusKm = AppPreferences.getSearchRadiusKm(this);
         lastAppliedRadiusKm = radiusKm;
         cars.clear();
         cars.addAll(CarDiscoveryHelper.filterAndSortCars(
@@ -292,7 +274,9 @@ public class BrowseCarsFragment extends Fragment {
                 radiusKm,
                 this::matchesTypeFilter
         ));
-        adapter.notifyDataSetChanged();
+        if (adapter != null) {
+            adapter.notifyDataSetChanged();
+        }
     }
 
     private boolean matchesTypeFilter(Car car) {
@@ -302,9 +286,9 @@ public class BrowseCarsFragment extends Fragment {
     }
 
     private void setupFilterDropdowns() {
-        dropdownTypeFilter.setAdapter(new ArrayAdapter<>(requireContext(), android.R.layout.simple_list_item_1, getResources().getStringArray(R.array.filter_all_type_options)));
-        dropdownTransmissionFilter.setAdapter(new ArrayAdapter<>(requireContext(), android.R.layout.simple_list_item_1, getResources().getStringArray(R.array.filter_all_transmission_options)));
-        dropdownFuelFilter.setAdapter(new ArrayAdapter<>(requireContext(), android.R.layout.simple_list_item_1, getResources().getStringArray(R.array.filter_all_fuel_options)));
+        dropdownTypeFilter.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, getResources().getStringArray(R.array.filter_all_type_options)));
+        dropdownTransmissionFilter.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, getResources().getStringArray(R.array.filter_all_transmission_options)));
+        dropdownFuelFilter.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, getResources().getStringArray(R.array.filter_all_fuel_options)));
 
         setupDropdownField(dropdownTypeFilter);
         setupDropdownField(dropdownTransmissionFilter);
@@ -355,12 +339,12 @@ public class BrowseCarsFragment extends Fragment {
     }
 
     private void showLocationSettingsDialog() {
-        new AlertDialog.Builder(requireContext())
+        new AlertDialog.Builder(this)
                 .setTitle(R.string.location_permission_title)
                 .setMessage(R.string.location_permission_settings_message)
                 .setPositiveButton(R.string.open_settings, (dialog, which) -> {
                     Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
-                    intent.setData(Uri.fromParts("package", requireContext().getPackageName(), null));
+                    intent.setData(Uri.fromParts("package", getPackageName(), null));
                     startActivity(intent);
                 })
                 .setNegativeButton(R.string.continue_without_location, null)

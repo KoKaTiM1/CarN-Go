@@ -1,37 +1,30 @@
 package com.yardenbental_danielcohen_shlomoedelstein.carn_go.adapter;
 
+import android.content.Context;
 import android.util.Base64;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.BaseAdapter;
 import android.widget.ImageView;
 import android.widget.TextView;
-
-import androidx.annotation.NonNull;
-import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.R;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Car;
 
 import java.util.List;
-/**
- * Adapter for displaying a list of Car objects in a RecyclerView.
- */
-public class CarAdapter extends RecyclerView.Adapter<CarAdapter.CarViewHolder> {
 
-    private List<Car> carList;
-    private OnCarClickListener listener;
+public class CarAdapter extends BaseAdapter {
 
-    /**
-     * Interface to handle clicks on car items in the list.
-     */
     public interface OnCarClickListener {
         void onCarClick(Car car);
         default void onEditClick(Car car) {}
         default void onDeleteClick(Car car) {}
     }
 
+    private final List<Car> carList;
+    private final OnCarClickListener listener;
     private boolean showEditDeleteOptions = false;
 
     public CarAdapter(List<Car> carList, OnCarClickListener listener) {
@@ -44,36 +37,51 @@ public class CarAdapter extends RecyclerView.Adapter<CarAdapter.CarViewHolder> {
         notifyDataSetChanged();
     }
 
-    @NonNull
     @Override
-    public CarViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        // Inflate the car item layout
-        View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_car, parent, false);
-        return new CarViewHolder(view);
+    public int getCount() {
+        return carList.size();
     }
 
     @Override
-    public void onBindViewHolder(@NonNull CarViewHolder holder, int position) {
-        Car car = carList.get(position);
+    public Car getItem(int position) {
+        return carList.get(position);
+    }
 
-        // Bind car data to UI elements
+    @Override
+    public long getItemId(int position) {
+        return position;
+    }
+
+    @Override
+    public View getView(int position, View convertView, ViewGroup parent) {
+        CarViewHolder holder;
+        if (convertView == null) {
+            convertView = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_car, parent, false);
+            holder = new CarViewHolder(convertView);
+            convertView.setTag(holder);
+        } else {
+            holder = (CarViewHolder) convertView.getTag();
+        }
+
+        Context context = convertView.getContext();
+        Car car = getItem(position);
+
         holder.tvCarName.setText(car.getName());
         if (car.getDistanceKm() != null) {
             String locationText = car.getLocation() == null || car.getLocation().isEmpty()
-                    ? holder.itemView.getContext().getString(R.string.distance_away_only, car.getDistanceKm())
-                    : holder.itemView.getContext().getString(R.string.location_with_distance, car.getLocation(), car.getDistanceKm());
+                    ? context.getString(R.string.distance_away_only, car.getDistanceKm())
+                    : context.getString(R.string.location_with_distance, car.getLocation(), car.getDistanceKm());
             holder.tvLocation.setText(locationText);
         } else {
             holder.tvLocation.setText(car.getLocation());
         }
 
-        holder.tvPrice.setText(holder.itemView.getContext().getString(R.string.price_per_hour, (int)car.getPricePerHour()));
+        holder.tvPrice.setText(context.getString(R.string.price_per_hour, (int) car.getPricePerHour()));
         holder.tvRating.setText(String.valueOf(car.getRating()));
         holder.tvTransmission.setText(car.getTransmission());
-        holder.tvSeats.setText(holder.itemView.getContext().getString(R.string.seats_count, car.getSeats()));
+        holder.tvSeats.setText(context.getString(R.string.seats_count, car.getSeats()));
         holder.tvTag.setText(car.getTag());
 
-        // Show or hide the tag based on whether it's available
         if (car.getTag() == null || car.getTag().isEmpty()) {
             holder.tagBackground.setVisibility(View.GONE);
             holder.tvTag.setVisibility(View.GONE);
@@ -82,25 +90,22 @@ public class CarAdapter extends RecyclerView.Adapter<CarAdapter.CarViewHolder> {
             holder.tvTag.setVisibility(View.VISIBLE);
         }
 
-        // Load the car image using Glide (handles both URL and Base64)
         String imagePath = car.getImageUrl();
         if (imagePath != null && !imagePath.isEmpty()) {
             if (imagePath.startsWith("http")) {
-                // It's a URL
-                Glide.with(holder.itemView.getContext())
+                Glide.with(context)
                         .load(imagePath)
                         .placeholder(R.drawable.ic_car_placeholder)
                         .centerCrop()
                         .into(holder.ivCarImage);
             } else {
-                // It's likely Base64 data
                 try {
                     byte[] decodedString = Base64.decode(imagePath, Base64.DEFAULT);
-                    Glide.with(holder.itemView.getContext())
+                    Glide.with(context)
                             .asBitmap()
                             .load(decodedString)
                             .placeholder(R.drawable.ic_car_placeholder)
-                            .centerCrop() // Optimization: crop before rendering
+                            .centerCrop()
                             .into(holder.ivCarImage);
                 } catch (Exception e) {
                     holder.ivCarImage.setImageResource(R.drawable.ic_car_placeholder);
@@ -110,8 +115,7 @@ public class CarAdapter extends RecyclerView.Adapter<CarAdapter.CarViewHolder> {
             holder.ivCarImage.setImageResource(R.drawable.ic_car_placeholder);
         }
 
-        // Set click listeners for the item and the details button
-        holder.itemView.setOnClickListener(v -> listener.onCarClick(car));
+        convertView.setOnClickListener(v -> listener.onCarClick(car));
         holder.btnDetails.setOnClickListener(v -> listener.onCarClick(car));
 
         if (showEditDeleteOptions) {
@@ -122,24 +126,19 @@ public class CarAdapter extends RecyclerView.Adapter<CarAdapter.CarViewHolder> {
         } else {
             holder.btnDetails.setVisibility(View.VISIBLE);
             holder.layoutEditDelete.setVisibility(View.GONE);
+            holder.btnEdit.setOnClickListener(null);
+            holder.btnDelete.setOnClickListener(null);
         }
+
+        return convertView;
     }
 
-    @Override
-    public int getItemCount() {
-        return carList.size();
-    }
-
-    /**
-     * ViewHolder class for holding references to car item views.
-     */
-    static class CarViewHolder extends RecyclerView.ViewHolder {
+    static class CarViewHolder {
         ImageView ivCarImage;
         TextView tvCarName, tvLocation, tvPrice, tvRating, tvTransmission, tvSeats, tvTag;
         View tagBackground, btnDetails, layoutEditDelete, btnEdit, btnDelete;
 
-        public CarViewHolder(@NonNull View itemView) {
-            super(itemView);
+        CarViewHolder(View itemView) {
             ivCarImage = itemView.findViewById(R.id.ivCarImage);
             tvCarName = itemView.findViewById(R.id.tvCarName);
             tvLocation = itemView.findViewById(R.id.tvLocation);

@@ -40,7 +40,7 @@
             android:value="fcm_pop_up_channel" />
 
         <activity
-            android:name=".MainActivity"
+            android:name=".ui.SplashActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -48,6 +48,45 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".ui.BrowseCarsActivity"
+            android:exported="false"
+            android:launchMode="singleTop" />
+
+        <activity
+            android:name=".ui.CarDetailsActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".ui.BookingSummaryActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".ui.MyCarsActivity"
+            android:exported="false"
+            android:launchMode="singleTop" />
+
+        <activity
+            android:name=".ui.MyBookingsActivity"
+            android:exported="false"
+            android:launchMode="singleTop" />
+
+        <activity
+            android:name=".ui.RentalPickupActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".ui.RentalCompletionActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".ui.ViewPhotosActivity"
+            android:exported="false" />
 
         <activity
             android:name=".ui.SettingsActivity"
