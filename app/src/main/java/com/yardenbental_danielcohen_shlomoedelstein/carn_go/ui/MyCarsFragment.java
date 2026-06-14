@@ -1,11 +1,22 @@
 package com.yardenbental_danielcohen_shlomoedelstein.carn_go.ui;
 
+import android.app.Activity;
+import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.provider.MediaStore;
+import android.util.Base64;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -14,11 +25,15 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
-
 import androidx.navigation.Navigation;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.android.material.datepicker.CalendarConstraints;
+import com.google.android.material.datepicker.DateValidatorPointForward;
+import com.google.android.material.datepicker.MaterialDatePicker;
+import com.google.android.material.timepicker.MaterialTimePicker;
+import com.google.android.material.timepicker.TimeFormat;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.R;
@@ -26,31 +41,19 @@ import com.yardenbental_danielcohen_shlomoedelstein.carn_go.adapter.CarAdapter;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.firebase.FirestoreHelper;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Car;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.util.Base64;
-import android.util.Log;
-
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
-
-import com.google.android.material.datepicker.CalendarConstraints;
-import com.google.android.material.datepicker.DateValidatorPointForward;
-import com.google.android.material.datepicker.MaterialDatePicker;
-import com.google.android.material.timepicker.MaterialTimePicker;
-import com.google.android.material.timepicker.TimeFormat;
-import android.widget.Button;
-import android.widget.TextView;
-
+import java.util.Map;
 import java.util.TimeZone;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -58,11 +61,19 @@ import java.util.concurrent.TimeUnit;
  */
 public class MyCarsFragment extends Fragment {
 
+    private final ExecutorService executorService = Executors.newSingleThreadExecutor();
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+
     private ActivityResultLauncher<String> pickImageLauncher;
+    private ActivityResultLauncher<Intent> cameraLauncher;
     private RecyclerView rvMyCars;
     private CarAdapter adapter;
     private List<Car> myCarsList = new ArrayList<>();
     private View layoutEmpty;
+    private View addCarBtn;
+
+    private long selectedStartTimestamp = 0;
+    private long selectedEndTimestamp = 0;
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -73,8 +84,20 @@ public class MyCarsFragment extends Fragment {
                 new ActivityResultContracts.GetContent(),
                 uri -> {
                     if (uri != null) {
-                        // Image selected! Now show a dialog to get car details.
                         showAddCarDialog(uri);
+                    }
+                }
+        );
+
+        // Initialize the camera launcher
+        cameraLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
+                        Bitmap photo = (Bitmap) result.getData().getExtras().get("data");
+                        if (photo != null) {
+                            showAddCarDialog(photo);
+                        }
                     }
                 }
         );
@@ -83,11 +106,11 @@ public class MyCarsFragment extends Fragment {
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-        // Inflate the layout for this fragment
         View view = inflater.inflate(R.layout.fragment_my_cars, container, false);
 
         rvMyCars = view.findViewById(R.id.rvMyCars);
         layoutEmpty = view.findViewById(R.id.layoutEmpty);
+        addCarBtn = view.findViewById(R.id.btnAddCar);
 
         rvMyCars.setLayoutManager(new LinearLayoutManager(getContext()));
         adapter = new CarAdapter(myCarsList, new CarAdapter.OnCarClickListener() {
@@ -111,17 +134,25 @@ public class MyCarsFragment extends Fragment {
         adapter.setShowEditDeleteOptions(true);
         rvMyCars.setAdapter(adapter);
 
-        // Find the "Add a Car" button and set its click listener
-        View addCarBtn = view.findViewById(R.id.btnAddCar);
         if (addCarBtn != null) {
             addCarBtn.setOnClickListener(v -> {
-                // Open the local photo gallery
-                pickImageLauncher.launch("image/*");
+                String[] options = {getString(R.string.take_photo), getString(R.string.choose_gallery)};
+                new AlertDialog.Builder(requireContext())
+                        .setTitle(R.string.add_car_photo)
+                        .setItems(options, (dialog, which) -> {
+                            if (which == 0) {
+                                // Camera
+                                Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+                                cameraLauncher.launch(takePictureIntent);
+                            } else {
+                                // Gallery
+                                pickImageLauncher.launch("image/*");
+                            }
+                        })
+                        .show();
             });
         }
-
         fetchMyCars();
-
         return view;
     }
 
@@ -147,22 +178,23 @@ public class MyCarsFragment extends Fragment {
                             Long seatsLong = document.getLong("seats");
                             int seats = seatsLong != null ? seatsLong.intValue() : 5;
                             String fuelType = document.getString("fuelType");
-                            String tag = document.getString("tag");
+                            String ownerId = document.getString("ownerId");
                             Long availableFrom = document.getLong("availableFrom");
                             Long availableTo = document.getLong("availableTo");
 
                             myCarsList.add(new Car(
                                     document.getId(),
-                                    name != null ? name : "Unknown",
-                                    type != null ? type : "Standard",
-                                    location != null ? location : "Unknown",
+                                    name != null ? name : getString(R.string.unknown),
+                                    type != null ? type : getString(R.string.standard),
+                                    location != null ? location : getString(R.string.unknown),
                                     price != null ? price : 0.0,
                                     rating != null ? rating : 5.0,
                                     imageUrl,
-                                    transmission != null ? transmission : "Auto",
+                                    transmission != null ? transmission : getString(R.string.auto),
                                     seats,
-                                    fuelType != null ? fuelType : "Gas",
-                                    tag != null ? tag : "",
+                                    fuelType != null ? fuelType : getString(R.string.gas),
+                                    "", // tag
+                                    ownerId != null ? ownerId : "",
                                     availableFrom != null ? availableFrom : 0,
                                     availableTo != null ? availableTo : 0
                             ));
@@ -181,15 +213,9 @@ public class MyCarsFragment extends Fragment {
                     adapter.notifyDataSetChanged();
                 })
                 .addOnFailureListener(e -> {
-                    Toast.makeText(getContext(), "Failed to load your cars", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(getContext(), R.string.failed_load_cars, Toast.LENGTH_SHORT).show();
                 });
     }
-
-    /**
-     * Shows a dialog to edit car details.
-     */
-    private long selectedStartTimestamp = 0;
-    private long selectedEndTimestamp = 0;
 
     private void showEditCarDialog(Car car) {
         View dialogView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_add_car, null);
@@ -204,7 +230,6 @@ public class MyCarsFragment extends Fragment {
         Button btnPickEnd = dialogView.findViewById(R.id.btnPickEnd);
         TextView tvAvailability = dialogView.findViewById(R.id.tvSelectedAvailability);
 
-        // Pre-fill with current data
         etName.setText(car.getName());
         etPrice.setText(String.valueOf(car.getPricePerHour()));
         etLocation.setText(car.getLocation());
@@ -221,9 +246,9 @@ public class MyCarsFragment extends Fragment {
         btnPickEnd.setOnClickListener(v -> pickDateTime(false, tvAvailability));
 
         new AlertDialog.Builder(requireContext())
-                .setTitle("Edit Car Details")
+                .setTitle(R.string.edit_car_details)
                 .setView(dialogView)
-                .setPositiveButton("Update", (dialog, which) -> {
+                .setPositiveButton(R.string.update, (dialog, which) -> {
                     String name = etName.getText().toString().trim();
                     String priceStr = etPrice.getText().toString().trim();
                     String location = etLocation.getText().toString().trim();
@@ -237,10 +262,10 @@ public class MyCarsFragment extends Fragment {
                         int seats = seatsStr.isEmpty() ? 5 : Integer.parseInt(seatsStr);
                         updateCarData(car.getId(), name, price, location, type, transmission, seats, fuelType, selectedStartTimestamp, selectedEndTimestamp);
                     } else {
-                        Toast.makeText(getContext(), "All fields and availability window are required", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(getContext(), R.string.error_required_fields, Toast.LENGTH_SHORT).show();
                     }
                 })
-                .setNegativeButton("Cancel", null)
+                .setNegativeButton(R.string.cancel, null)
                 .show();
     }
 
@@ -260,30 +285,30 @@ public class MyCarsFragment extends Fragment {
         db.collection("cars").document(carId)
                 .update(updates)
                 .addOnSuccessListener(aVoid -> {
-                    Toast.makeText(getContext(), "Car updated!", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(getContext(), R.string.car_updated, Toast.LENGTH_SHORT).show();
                     fetchMyCars();
                 })
-                .addOnFailureListener(e -> Toast.makeText(getContext(), "Error updating: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+                .addOnFailureListener(e -> Toast.makeText(getContext(), getString(R.string.error_updating, e.getMessage()), Toast.LENGTH_SHORT).show());
     }
 
     private void showDeleteConfirmationDialog(Car car) {
         new AlertDialog.Builder(requireContext())
-                .setTitle("Delete Car")
-                .setMessage("Are you sure you want to delete this car?")
-                .setPositiveButton("Delete", (dialog, which) -> {
+                .setTitle(R.string.delete_car)
+                .setMessage(R.string.delete_confirmation)
+                .setPositiveButton(R.string.delete, (dialog, which) -> {
                     FirebaseFirestore.getInstance().collection("cars").document(car.getId())
                             .delete()
                             .addOnSuccessListener(aVoid -> {
-                                Toast.makeText(getContext(), "Car deleted", Toast.LENGTH_SHORT).show();
+                                Toast.makeText(getContext(), R.string.car_deleted, Toast.LENGTH_SHORT).show();
                                 fetchMyCars();
                             })
-                            .addOnFailureListener(e -> Toast.makeText(getContext(), "Error deleting: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+                            .addOnFailureListener(e -> Toast.makeText(getContext(), getString(R.string.error_deleting, e.getMessage()), Toast.LENGTH_SHORT).show());
                 })
-                .setNegativeButton("Cancel", null)
+                .setNegativeButton(R.string.cancel, null)
                 .show();
     }
 
-    private void showAddCarDialog(Uri imageUri) {
+    private void showAddCarDialog(Object imageSource) {
         View dialogView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_add_car, null);
         EditText etName = dialogView.findViewById(R.id.etCarName);
         EditText etPrice = dialogView.findViewById(R.id.etPrice);
@@ -303,9 +328,9 @@ public class MyCarsFragment extends Fragment {
         btnPickEnd.setOnClickListener(v -> pickDateTime(false, tvAvailability));
 
         new AlertDialog.Builder(requireContext())
-                .setTitle("Car Details")
+                .setTitle(R.string.add_new_car)
                 .setView(dialogView)
-                .setPositiveButton("Add", (dialog, which) -> {
+                .setPositiveButton(R.string.add, (dialog, which) -> {
                     String name = etName.getText().toString().trim();
                     String priceStr = etPrice.getText().toString().trim();
                     String location = etLocation.getText().toString().trim();
@@ -315,14 +340,18 @@ public class MyCarsFragment extends Fragment {
                     String fuelType = etFuelType.getText().toString().trim();
 
                     if (!name.isEmpty() && !priceStr.isEmpty() && selectedStartTimestamp != 0 && selectedEndTimestamp != 0) {
-                        double price = Double.parseDouble(priceStr);
-                        int seats = seatsStr.isEmpty() ? 5 : Integer.parseInt(seatsStr);
-                        uploadCarData(name, price, location, type, transmission, seats, fuelType, imageUri, selectedStartTimestamp, selectedEndTimestamp);
+                        try {
+                            double price = Double.parseDouble(priceStr);
+                            int seats = seatsStr.isEmpty() ? 5 : Integer.parseInt(seatsStr);
+                            uploadCarData(name, price, location, type, transmission, seats, fuelType, imageSource, selectedStartTimestamp, selectedEndTimestamp);
+                        } catch (NumberFormatException e) {
+                            Toast.makeText(getContext(), R.string.error_invalid_input, Toast.LENGTH_SHORT).show();
+                        }
                     } else {
-                        Toast.makeText(getContext(), "All fields and availability window are required", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(getContext(), R.string.error_required_fields, Toast.LENGTH_SHORT).show();
                     }
                 })
-                .setNegativeButton("Cancel", null)
+                .setNegativeButton(R.string.cancel, null)
                 .show();
     }
 
@@ -341,7 +370,7 @@ public class MyCarsFragment extends Fragment {
                                 : (selectedEndTimestamp != 0 ? selectedEndTimestamp : (selectedStartTimestamp != 0 ? selectedStartTimestamp + TimeUnit.HOURS.toMillis(1) : System.currentTimeMillis() + TimeUnit.HOURS.toMillis(1)));
 
         MaterialDatePicker<Long> datePicker = MaterialDatePicker.Builder.datePicker()
-                .setTitleText("Select " + (isStart ? "Start" : "End") + " Date")
+                .setTitleText(isStart ? R.string.select_start_date : R.string.select_end_date)
                 .setSelection(selection)
                 .setCalendarConstraints(constraintsBuilder.build())
                 .build();
@@ -368,7 +397,7 @@ public class MyCarsFragment extends Fragment {
                     .setTimeFormat(TimeFormat.CLOCK_24H)
                     .setHour(c.get(Calendar.HOUR_OF_DAY))
                     .setMinute(c.get(Calendar.MINUTE))
-                    .setTitleText("Select " + (isStart ? "Start" : "End") + " Time")
+                    .setTitleText(isStart ? R.string.select_start_time : R.string.select_end_time)
                     .build();
 
             timePicker.addOnPositiveButtonClickListener(v -> {
@@ -401,59 +430,67 @@ public class MyCarsFragment extends Fragment {
         SimpleDateFormat sdf = new SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault());
         String startStr = selectedStartTimestamp == 0 ? "..." : sdf.format(new Date(selectedStartTimestamp));
         String endStr = selectedEndTimestamp == 0 ? "..." : sdf.format(new Date(selectedEndTimestamp));
-        tvDisplay.setText("Available from: " + startStr + " to " + endStr);
+        tvDisplay.setText(getString(R.string.available_from_to, startStr, endStr));
     }
 
-    /**
-     * Converts image to Base64 and saves everything directly to Firestore.
-     * No Firebase Storage bucket required.
-     */
-    private void uploadCarData(String carName, double price, String location, String type, String transmission, int seats, String fuelType, Uri imageUri, long start, long end) {
+    private void uploadCarData(String carName, double price, String location, String type, String transmission, int seats, String fuelType, Object imageSource, long start, long end) {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
-        Toast.makeText(getContext(), "Processing listing...", Toast.LENGTH_SHORT).show();
+        Toast.makeText(getContext(), R.string.processing_listing, Toast.LENGTH_SHORT).show();
 
-        try {
-            // 1. Convert Image Uri to Bitmap
-            InputStream inputStream = requireContext().getContentResolver().openInputStream(imageUri);
-            Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
+        executorService.execute(() -> {
+            try {
+                Bitmap bitmap = null;
+                if (imageSource instanceof Uri) {
+                    InputStream inputStream = requireContext().getContentResolver().openInputStream((Uri) imageSource);
+                    bitmap = BitmapFactory.decodeStream(inputStream);
+                } else if (imageSource instanceof Bitmap) {
+                    bitmap = (Bitmap) imageSource;
+                }
 
-            // 2. IMPORTANT: Resize & Compress for Firestore (Firestore has a 1MB per document limit)
-            // We scale down the image and compress quality to 70% to keep it small.
-            Bitmap scaledBitmap = Bitmap.createScaledBitmap(bitmap, 640, 480, true);
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 70, outputStream);
+                if (bitmap == null) {
+                    mainHandler.post(() -> Toast.makeText(getContext(), R.string.error_image_processing, Toast.LENGTH_SHORT).show());
+                    return;
+                }
 
-            // 3. Convert to Base64 String
-            byte[] byteArray = outputStream.toByteArray();
-            String encodedImage = Base64.encodeToString(byteArray, Base64.DEFAULT);
+                // Resize & Compress
+                Bitmap scaledBitmap = Bitmap.createScaledBitmap(bitmap, 640, 480, true);
+                ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+                scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 70, outputStream);
 
-            // 4. Save to Firestore
-            Map<String, Object> carData = new HashMap<>();
-            carData.put("name", carName);
-            carData.put("pricePerHour", price);
-            carData.put("location", location);
-            carData.put("type", type);
-            carData.put("imageUrl", encodedImage); // This now stores the bit data
-            carData.put("ownerId", FirestoreHelper.getCurrentUserId(getContext()));
-            carData.put("rating", 5.0);
-            carData.put("transmission", transmission);
-            carData.put("seats", seats);
-            carData.put("fuelType", fuelType);
-            carData.put("availableFrom", start);
-            carData.put("availableTo", end);
+                // Convert to Base64 String
+                byte[] byteArray = outputStream.toByteArray();
+                String encodedImage = Base64.encodeToString(byteArray, Base64.DEFAULT);
 
-            db.collection("cars").add(carData)
-                    .addOnSuccessListener(documentReference -> {
-                        Toast.makeText(getContext(), "Listing added successfully!", Toast.LENGTH_SHORT).show();
-                        fetchMyCars(); // Refresh the list
-                    })
-                    .addOnFailureListener(e -> {
-                        Toast.makeText(getContext(), "Firestore Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                    });
+                // Save to Firestore
+                Map<String, Object> carData = new HashMap<>();
+                carData.put("name", carName);
+                carData.put("pricePerHour", price);
+                carData.put("location", location);
+                carData.put("type", type);
+                carData.put("imageUrl", encodedImage);
+                carData.put("ownerId", FirestoreHelper.getCurrentUserId(getContext()));
+                carData.put("rating", 5.0);
+                carData.put("transmission", transmission);
+                carData.put("seats", seats);
+                carData.put("fuelType", fuelType);
+                carData.put("availableFrom", start);
+                carData.put("availableTo", end);
 
-        } catch (Exception e) {
-            e.printStackTrace();
-            Toast.makeText(getContext(), "Image processing failed.", Toast.LENGTH_SHORT).show();
-        }
+                db.collection("cars").add(carData)
+                        .addOnSuccessListener(documentReference -> {
+                            mainHandler.post(() -> {
+                                Toast.makeText(getContext(), R.string.listing_added, Toast.LENGTH_SHORT).show();
+                                fetchMyCars();
+                            });
+                        })
+                        .addOnFailureListener(e -> {
+                            mainHandler.post(() -> Toast.makeText(getContext(), getString(R.string.firestore_error, e.getMessage()), Toast.LENGTH_SHORT).show());
+                        });
+
+            } catch (Exception e) {
+                Log.e("MyCarsFragment", "Upload failed", e);
+                mainHandler.post(() -> Toast.makeText(getContext(), R.string.error_image_processing, Toast.LENGTH_SHORT).show());
+            }
+        });
     }
 }

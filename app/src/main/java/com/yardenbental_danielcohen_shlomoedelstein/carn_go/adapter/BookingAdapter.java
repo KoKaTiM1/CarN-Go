@@ -4,6 +4,7 @@ import android.util.Base64;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -22,10 +23,22 @@ import java.util.Locale;
 
 public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingViewHolder> {
 
-    private List<Booking> bookingList;
+    public interface OnBookingActionListener {
+        void onApprove(Booking booking);
+        void onReject(Booking booking);
+        void onPickupPhoto(Booking booking);
+        void onFinish(Booking booking);
+        void onViewPhotos(Booking booking);
+    }
 
-    public BookingAdapter(List<Booking> bookingList) {
+    private List<Booking> bookingList;
+    private String currentUserId;
+    private OnBookingActionListener listener;
+
+    public BookingAdapter(List<Booking> bookingList, String currentUserId, OnBookingActionListener listener) {
         this.bookingList = bookingList;
+        this.currentUserId = currentUserId;
+        this.listener = listener;
     }
 
     @NonNull
@@ -40,6 +53,79 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
         Booking booking = bookingList.get(position);
 
         holder.tvCarName.setText(booking.getCarName());
+        
+        // Status display
+        String status = booking.getStatus() != null ? booking.getStatus() : "PENDING";
+        holder.tvStatus.setText(status);
+        if ("APPROVED".equals(status)) {
+            holder.tvStatus.setTextColor(holder.itemView.getContext().getColor(R.color.primary));
+        } else if ("REJECTED".equals(status)) {
+            holder.tvStatus.setTextColor(holder.itemView.getContext().getColor(R.color.error));
+        } else {
+            holder.tvStatus.setTextColor(holder.itemView.getContext().getColor(R.color.secondary));
+        }
+
+        // Action buttons visibility: Only show if I am the owner and it is PENDING
+        if (currentUserId != null && currentUserId.equals(booking.getOwnerId()) && "PENDING".equals(status)) {
+            holder.layoutActions.setVisibility(View.VISIBLE);
+            holder.btnApprove.setVisibility(View.VISIBLE);
+            holder.btnReject.setVisibility(View.VISIBLE);
+            holder.btnPickupPhoto.setVisibility(View.GONE);
+            holder.btnFinish.setVisibility(View.GONE);
+            holder.btnViewPhotos.setVisibility(View.GONE);
+        } else if (currentUserId != null && currentUserId.equals(booking.getUserId()) && "APPROVED".equals(status)) {
+            holder.layoutActions.setVisibility(View.VISIBLE);
+            holder.btnApprove.setVisibility(View.GONE);
+            holder.btnReject.setVisibility(View.GONE);
+            
+            // Logic: If no pickup photo, show pickup button. If pickup photo exists, show finish button.
+            if (booking.getStartPhotoUrl() == null || booking.getStartPhotoUrl().isEmpty()) {
+                holder.btnPickupPhoto.setVisibility(View.VISIBLE);
+                holder.btnFinish.setVisibility(View.GONE);
+            } else {
+                holder.btnPickupPhoto.setVisibility(View.GONE);
+                holder.btnFinish.setVisibility(View.VISIBLE);
+            }
+            holder.btnViewPhotos.setVisibility(View.GONE);
+        } else if ("COMPLETED".equals(status)) {
+            holder.layoutActions.setVisibility(View.VISIBLE);
+            holder.btnApprove.setVisibility(View.GONE);
+            holder.btnReject.setVisibility(View.GONE);
+            holder.btnPickupPhoto.setVisibility(View.GONE);
+            holder.btnFinish.setVisibility(View.GONE);
+            holder.btnViewPhotos.setVisibility(View.VISIBLE);
+        } else {
+            holder.layoutActions.setVisibility(View.GONE);
+        }
+
+        // Make the entire card clickable to view photos if completed
+        if ("COMPLETED".equals(status)) {
+            holder.itemView.setOnClickListener(v -> {
+                if (listener != null) listener.onViewPhotos(booking);
+            });
+        } else {
+            holder.itemView.setOnClickListener(null);
+        }
+
+        holder.btnApprove.setOnClickListener(v -> {
+            if (listener != null) listener.onApprove(booking);
+        });
+
+        holder.btnReject.setOnClickListener(v -> {
+            if (listener != null) listener.onReject(booking);
+        });
+
+        holder.btnPickupPhoto.setOnClickListener(v -> {
+            if (listener != null) listener.onPickupPhoto(booking);
+        });
+
+        holder.btnFinish.setOnClickListener(v -> {
+            if (listener != null) listener.onFinish(booking);
+        });
+
+        holder.btnViewPhotos.setOnClickListener(v -> {
+            if (listener != null) listener.onViewPhotos(booking);
+        });
         
         long durationMillis = booking.getEndTime() - booking.getStartTime();
         long hours = TimeUnit.MILLISECONDS.toHours(durationMillis);
@@ -63,17 +149,25 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
                         .centerCrop()
                         .into(holder.ivCarImage);
             } else {
+                // For Base64 strings, we can pass them directly if they have the data:image prefix,
+                // but since these are raw Base64, we decode. 
+                // To keep onBindViewHolder fast, we let Glide's background threads handle it by passing the string if supported,
+                // or we can use a small optimization. Glide's load(byte[]) is good, but decode is still on UI.
+                // For now, we'll keep it as is but ensure it's wrapped safely.
                 try {
                     byte[] decodedString = Base64.decode(imagePath, Base64.DEFAULT);
                     Glide.with(holder.itemView.getContext())
                             .asBitmap()
                             .load(decodedString)
+                            .placeholder(R.drawable.ic_car_placeholder) // Add a placeholder
                             .centerCrop()
                             .into(holder.ivCarImage);
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    holder.ivCarImage.setImageResource(R.drawable.ic_car_placeholder);
                 }
             }
+        } else {
+            holder.ivCarImage.setImageResource(R.drawable.ic_car_placeholder);
         }
     }
 
@@ -84,7 +178,9 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
 
     static class BookingViewHolder extends RecyclerView.ViewHolder {
         ImageView ivCarImage;
-        TextView tvCarName, tvDuration, tvDate, tvTotal;
+        TextView tvCarName, tvDuration, tvDate, tvTotal, tvStatus;
+        View layoutActions;
+        Button btnApprove, btnReject, btnPickupPhoto, btnFinish, btnViewPhotos;
 
         public BookingViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -93,6 +189,13 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
             tvDuration = itemView.findViewById(R.id.tvBookingDuration);
             tvDate = itemView.findViewById(R.id.tvBookingDate);
             tvTotal = itemView.findViewById(R.id.tvBookingTotal);
+            tvStatus = itemView.findViewById(R.id.tvBookingStatus);
+            layoutActions = itemView.findViewById(R.id.layoutBookingActions);
+            btnApprove = itemView.findViewById(R.id.btnApproveBooking);
+            btnReject = itemView.findViewById(R.id.btnRejectBooking);
+            btnPickupPhoto = itemView.findViewById(R.id.btnPickupPhoto);
+            btnFinish = itemView.findViewById(R.id.btnFinishRental);
+            btnViewPhotos = itemView.findViewById(R.id.btnViewPhotos);
         }
     }
 }
