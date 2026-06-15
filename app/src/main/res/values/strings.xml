@@ -39,10 +39,12 @@
     <string name="about_developers_title">Developers</string>
     <string name="about_developers_body">Yarden Bental\nDaniel Cohen\nShlomo Edelstein</string>
 
-    <!-- MyCarsFragment Strings -->
     <string name="take_photo">Take Photo (Camera)</string>
     <string name="choose_gallery">Choose from Gallery</string>
     <string name="add_car_photo">Add Car Photo</string>
+    <string name="car_description_label">Short Description (optional)</string>
+    <string name="car_description_hint">Add a short car description</string>
+    <string name="no_car_description">No description provided.</string>
     <string name="unknown">Unknown</string>
     <string name="standard">Standard</string>
     <string name="auto">Auto</string>

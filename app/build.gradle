@@ -50,11 +50,9 @@ dependencies {
 
     // Firebase (Versions managed via BoM in libs.versions.toml)
     implementation platform(libs.firebase.bom)
-    implementation libs.firebase.analytics
     implementation libs.firebase.auth
     implementation libs.firebase.firestore
     implementation libs.firebase.messaging
-    implementation libs.firebase.storage
 
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
     implementation 'com.google.auth:google-auth-library-oauth2-http:1.19.0'

@@ -45,6 +45,7 @@ public final class CarDiscoveryHelper {
                             }
 
                             String name = document.getString("name");
+                            String description = document.getString("description");
                             String type = document.getString("type");
                             String location = document.getString("location");
                             Double latitude = document.getDouble("latitude");
@@ -63,6 +64,7 @@ public final class CarDiscoveryHelper {
                             cars.add(new Car(
                                     document.getId(),
                                     name != null ? name : context.getString(R.string.unknown),
+                                    description,
                                     type != null ? type : context.getString(R.string.standard),
                                     location != null ? location : context.getString(R.string.location_unavailable_label),
                                     latitude,

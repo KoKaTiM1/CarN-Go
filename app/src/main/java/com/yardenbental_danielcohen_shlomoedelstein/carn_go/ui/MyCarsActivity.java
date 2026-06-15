@@ -197,6 +197,7 @@ public class MyCarsActivity extends BaseNavigationActivity {
                     for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
                         try {
                             String name = document.getString("name");
+                            String description = document.getString("description");
                             String type = document.getString("type");
                             String location = document.getString("location");
                             Double latitude = document.getDouble("latitude");
@@ -215,6 +216,7 @@ public class MyCarsActivity extends BaseNavigationActivity {
                             myCarsList.add(new Car(
                                     document.getId(),
                                     name != null ? name : getString(R.string.unknown),
+                                    description,
                                     type != null ? type : getString(R.string.standard),
                                     location != null ? location : getString(R.string.unknown),
                                     latitude,
@@ -252,6 +254,7 @@ public class MyCarsActivity extends BaseNavigationActivity {
         EditText etName = dialogView.findViewById(R.id.etCarName);
         EditText etPrice = dialogView.findViewById(R.id.etPrice);
         EditText etLocation = dialogView.findViewById(R.id.etLocation);
+        EditText etDescription = dialogView.findViewById(R.id.etDescription);
         Spinner etType = dialogView.findViewById(R.id.etType);
         Spinner etTransmission = dialogView.findViewById(R.id.etTransmission);
         EditText etSeats = dialogView.findViewById(R.id.etSeats);
@@ -266,6 +269,7 @@ public class MyCarsActivity extends BaseNavigationActivity {
         etName.setText(car.getName());
         etPrice.setText(String.valueOf(car.getPricePerHour()));
         etLocation.setText(car.getLocation());
+        etDescription.setText(car.getDescription());
         setSpinnerSelection(etType, normalizeCarType(car.getType()));
         setSpinnerSelection(etTransmission, normalizeTransmission(car.getTransmission()));
         etSeats.setText(String.valueOf(car.getSeats()));
@@ -288,14 +292,14 @@ public class MyCarsActivity extends BaseNavigationActivity {
                 .create();
 
         dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
-            CarFormData formData = buildCarFormData(etName, etPrice, etLocation, etType, etTransmission, etSeats, etFuelType);
+            CarFormData formData = buildCarFormData(etName, etPrice, etLocation, etDescription, etType, etTransmission, etSeats, etFuelType);
             if (formData == null || !validateAvailabilitySelection()) {
                 return;
             }
 
             Double latitude = formData.location.equals(locationDraft.displayName) ? locationDraft.latitude : null;
             Double longitude = formData.location.equals(locationDraft.displayName) ? locationDraft.longitude : null;
-            updateCarData(car.getId(), formData.name, formData.price, formData.location, latitude, longitude,
+            updateCarData(car.getId(), formData.name, formData.description, formData.price, formData.location, latitude, longitude,
                     formData.type, formData.transmission, formData.seats, formData.fuelType,
                     selectedStartTimestamp, selectedEndTimestamp);
             dialog.dismiss();
@@ -303,10 +307,11 @@ public class MyCarsActivity extends BaseNavigationActivity {
         dialog.show();
     }
 
-    private void updateCarData(String carId, String name, double price, String location, Double latitude, Double longitude, String type, String transmission, int seats, String fuelType, long start, long end) {
+    private void updateCarData(String carId, String name, String description, double price, String location, Double latitude, Double longitude, String type, String transmission, int seats, String fuelType, long start, long end) {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
         Map<String, Object> updates = new HashMap<>();
         updates.put("name", name);
+        updates.put("description", description);
         updates.put("pricePerHour", price);
         updates.put("location", location);
         updates.put("latitude", latitude);
@@ -347,6 +352,7 @@ public class MyCarsActivity extends BaseNavigationActivity {
         EditText etName = dialogView.findViewById(R.id.etCarName);
         EditText etPrice = dialogView.findViewById(R.id.etPrice);
         EditText etLocation = dialogView.findViewById(R.id.etLocation);
+        EditText etDescription = dialogView.findViewById(R.id.etDescription);
         Spinner etType = dialogView.findViewById(R.id.etType);
         Spinner etTransmission = dialogView.findViewById(R.id.etTransmission);
         EditText etSeats = dialogView.findViewById(R.id.etSeats);
@@ -376,14 +382,14 @@ public class MyCarsActivity extends BaseNavigationActivity {
                 .create();
 
         dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
-            CarFormData formData = buildCarFormData(etName, etPrice, etLocation, etType, etTransmission, etSeats, etFuelType);
+            CarFormData formData = buildCarFormData(etName, etPrice, etLocation, etDescription, etType, etTransmission, etSeats, etFuelType);
             if (formData == null || !validateAvailabilitySelection()) {
                 return;
             }
 
             Double latitude = formData.location.equals(locationDraft.displayName) ? locationDraft.latitude : null;
             Double longitude = formData.location.equals(locationDraft.displayName) ? locationDraft.longitude : null;
-            uploadCarData(formData.name, formData.price, formData.location, latitude, longitude,
+            uploadCarData(formData.name, formData.description, formData.price, formData.location, latitude, longitude,
                     formData.type, formData.transmission, formData.seats, formData.fuelType,
                     imageSource, selectedStartTimestamp, selectedEndTimestamp);
             dialog.dismiss();
@@ -514,6 +520,7 @@ public class MyCarsActivity extends BaseNavigationActivity {
     private CarFormData buildCarFormData(EditText etName,
                                          EditText etPrice,
                                          EditText etLocation,
+                                         EditText etDescription,
                                          Spinner etType,
                                          Spinner etTransmission,
                                          EditText etSeats,
@@ -521,6 +528,7 @@ public class MyCarsActivity extends BaseNavigationActivity {
         String name = safeText(etName);
         String priceStr = safeText(etPrice);
         String location = safeText(etLocation);
+        String description = normalizeDescription(safeText(etDescription));
         String type = safeSpinnerText(etType);
         String transmission = safeSpinnerText(etTransmission);
         String seatsStr = safeText(etSeats);
@@ -534,11 +542,19 @@ public class MyCarsActivity extends BaseNavigationActivity {
         try {
             double price = Double.parseDouble(priceStr);
             int seats = seatsStr.isEmpty() ? 5 : Integer.parseInt(seatsStr);
-            return new CarFormData(name, price, location, type, transmission, seats, fuelType);
+            return new CarFormData(name, description, price, location, type, transmission, seats, fuelType);
         } catch (NumberFormatException error) {
             Toast.makeText(MyCarsActivity.this, R.string.error_invalid_input, Toast.LENGTH_SHORT).show();
             return null;
         }
+    }
+
+    @NonNull
+    private String normalizeDescription(@NonNull String description) {
+        if (description.length() <= 100) {
+            return description;
+        }
+        return description.substring(0, 100).trim();
     }
 
     private void setupCarChoiceDropdowns(Spinner typeField,
@@ -633,7 +649,7 @@ public class MyCarsActivity extends BaseNavigationActivity {
         return selected != null ? selected.toString().trim() : "";
     }
 
-    private void uploadCarData(String carName, double price, String location, Double latitude, Double longitude, String type, String transmission, int seats, String fuelType, Object imageSource, long start, long end) {
+    private void uploadCarData(String carName, String description, double price, String location, Double latitude, Double longitude, String type, String transmission, int seats, String fuelType, Object imageSource, long start, long end) {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
         Toast.makeText(MyCarsActivity.this, R.string.processing_listing, Toast.LENGTH_SHORT).show();
 
@@ -661,6 +677,7 @@ public class MyCarsActivity extends BaseNavigationActivity {
 
                 Map<String, Object> carData = new HashMap<>();
                 carData.put("name", carName);
+                carData.put("description", description);
                 carData.put("pricePerHour", price);
                 carData.put("location", location);
                 carData.put("latitude", latitude);
@@ -816,6 +833,7 @@ public class MyCarsActivity extends BaseNavigationActivity {
 
     private static class CarFormData {
         final String name;
+        final String description;
         final double price;
         final String location;
         final String type;
@@ -823,8 +841,9 @@ public class MyCarsActivity extends BaseNavigationActivity {
         final int seats;
         final String fuelType;
 
-        CarFormData(String name, double price, String location, String type, String transmission, int seats, String fuelType) {
+        CarFormData(String name, String description, double price, String location, String type, String transmission, int seats, String fuelType) {
             this.name = name;
+            this.description = description;
             this.price = price;
             this.location = location;
             this.type = type;

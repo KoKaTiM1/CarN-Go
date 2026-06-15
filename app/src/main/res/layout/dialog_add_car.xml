@@ -71,6 +71,27 @@
                 android:inputType="textPostalAddress" />
         </LinearLayout>
 
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginBottom="8dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/car_description_label" />
+
+            <EditText
+                android:id="@+id/etDescription"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/car_description_hint"
+                android:inputType="textCapSentences|textMultiLine"
+                android:maxLength="100"
+                android:minLines="2" />
+        </LinearLayout>
+
         <Button
             android:id="@+id/btnUseCurrentLocation"
             style="@style/Widget.Material3.Button.OutlinedButton"

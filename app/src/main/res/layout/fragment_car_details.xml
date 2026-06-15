@@ -154,11 +154,12 @@
                 android:textStyle="bold" />
 
             <TextView
+                android:id="@+id/tvDetailDescription"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
                 android:lineSpacingExtra="4dp"
-                android:text="Perfect for city errands, weekend grocery runs, or a fuel-efficient commute. This car is clean, well-maintained, and incredibly easy to park."
+                android:text="@string/no_car_description"
                 android:textColor="@color/on_surface_variant"
                 android:textSize="16sp" />
 

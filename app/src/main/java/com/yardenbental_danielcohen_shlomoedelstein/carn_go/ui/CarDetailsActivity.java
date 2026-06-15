@@ -11,6 +11,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 
+import androidx.core.content.ContextCompat;
 import androidx.appcompat.widget.Toolbar;
 
 import com.bumptech.glide.Glide;
@@ -50,6 +51,7 @@ public class CarDetailsActivity extends BaseNavigationActivity {
             TextView tvAvailableTo = view.findViewById(R.id.tvDetailAvailableTo);
             TextView tvBusySlotsLabel = view.findViewById(R.id.tvBusySlotsLabel);
             TextView tvBusySlots = view.findViewById(R.id.tvBusySlots);
+            TextView tvDescription = view.findViewById(R.id.tvDetailDescription);
 
             // Populate the UI with car details
             tvName.setText(car.getName());
@@ -61,6 +63,15 @@ public class CarDetailsActivity extends BaseNavigationActivity {
             SimpleDateFormat sdf = new SimpleDateFormat("MMM d, yyyy HH:mm", Locale.getDefault());
             tvAvailableFrom.setText("From: " + sdf.format(new Date(car.getAvailableFrom())));
             tvAvailableTo.setText("To: " + sdf.format(new Date(car.getAvailableTo())));
+
+            String description = car.getDescription() == null ? "" : car.getDescription().trim();
+            if (description.isEmpty()) {
+                tvDescription.setText(R.string.no_car_description);
+                tvDescription.setTextColor(ContextCompat.getColor(this, R.color.on_surface_variant));
+            } else {
+                tvDescription.setText(description);
+                tvDescription.setTextColor(ContextCompat.getColor(this, R.color.on_surface));
+            }
 
             // Show or hide Fuel Type based on availability
             if (car.getFuelType() != null && !car.getFuelType().isEmpty()) {

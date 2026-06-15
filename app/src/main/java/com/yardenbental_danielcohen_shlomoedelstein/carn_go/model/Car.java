@@ -9,6 +9,7 @@ import java.io.Serializable;
 public class Car implements Serializable {
     private String id;
     private String name;
+    private String description;
     private String type;
     private String location;
     private Double latitude;
@@ -28,13 +29,14 @@ public class Car implements Serializable {
     /**
      * Constructs a new Car with the specified details.
      */
-    public Car(String id, String name, String type, String location, double pricePerHour, double rating, String imageUrl, String transmission, int seats, String fuelType, String tag, String ownerId, long availableFrom, long availableTo) {
-        this(id, name, type, location, null, null, pricePerHour, rating, imageUrl, transmission, seats, fuelType, tag, ownerId, availableFrom, availableTo);
+    public Car(String id, String name, String description, String type, String location, double pricePerHour, double rating, String imageUrl, String transmission, int seats, String fuelType, String tag, String ownerId, long availableFrom, long availableTo) {
+        this(id, name, description, type, location, null, null, pricePerHour, rating, imageUrl, transmission, seats, fuelType, tag, ownerId, availableFrom, availableTo);
     }
 
-    public Car(String id, String name, String type, String location, Double latitude, Double longitude, double pricePerHour, double rating, String imageUrl, String transmission, int seats, String fuelType, String tag, String ownerId, long availableFrom, long availableTo) {
+    public Car(String id, String name, String description, String type, String location, Double latitude, Double longitude, double pricePerHour, double rating, String imageUrl, String transmission, int seats, String fuelType, String tag, String ownerId, long availableFrom, long availableTo) {
         this.id = id;
         this.name = name;
+        this.description = normalizeDescription(description);
         this.type = type;
         this.location = location;
         this.latitude = latitude;
@@ -53,6 +55,7 @@ public class Car implements Serializable {
 
     public String getId() { return id; }
     public String getName() { return name; }
+    public String getDescription() { return description; }
     public String getType() { return type; }
     public String getLocation() { return location; }
     public Double getLatitude() { return latitude; }
@@ -70,8 +73,20 @@ public class Car implements Serializable {
     public long getAvailableTo() { return availableTo; }
 
     public void setId(String id) { this.id = id; }
+    public void setDescription(String description) { this.description = normalizeDescription(description); }
     public void setOwnerId(String ownerId) { this.ownerId = ownerId; }
     public void setAvailableFrom(long availableFrom) { this.availableFrom = availableFrom; }
     public void setAvailableTo(long availableTo) { this.availableTo = availableTo; }
     public void setDistanceKm(Double distanceKm) { this.distanceKm = distanceKm; }
+
+    private static String normalizeDescription(String description) {
+        if (description == null) {
+            return null;
+        }
+        String trimmed = description.trim();
+        if (trimmed.length() <= 100) {
+            return trimmed;
+        }
+        return trimmed.substring(0, 100).trim();
+    }
 }
