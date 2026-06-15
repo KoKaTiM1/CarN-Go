@@ -48,7 +48,7 @@ public class RentalPickupActivity extends BaseNavigationActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setTitle("Start Rental");
+        setTitle(R.string.app_name);
         setScreenContent(R.layout.fragment_rental_pickup, 0, false, true);
         View view = findViewById(android.R.id.content);
         booking = (Booking) getIntent().getSerializableExtra("booking");

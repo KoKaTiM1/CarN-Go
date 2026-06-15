@@ -2,6 +2,7 @@ package com.yardenbental_danielcohen_shlomoedelstein.carn_go.ui;
 
 import android.content.Intent;
 import android.graphics.Color;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.TypedValue;
 import android.view.Menu;
@@ -34,6 +35,7 @@ public abstract class BaseNavigationActivity extends AppCompatActivity {
             boolean showToolbar
     ) {
         this.selectedBottomItemId = selectedBottomItemId;
+        setTitle(R.string.app_name);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(ContextCompat.getColor(this, R.color.background));
@@ -44,7 +46,7 @@ public abstract class BaseNavigationActivity extends AppCompatActivity {
 
         toolbar = new Toolbar(this);
         toolbar.setId(View.generateViewId());
-        toolbar.setTitle(getTitle());
+        toolbar.setTitle(R.string.app_name);
         toolbar.setTitleTextColor(Color.WHITE);
         toolbar.setBackgroundColor(showToolbar ? ContextCompat.getColor(this, R.color.primary) : Color.TRANSPARENT);
         toolbar.setVisibility(showToolbar ? View.VISIBLE : View.GONE);
@@ -53,6 +55,9 @@ public abstract class BaseNavigationActivity extends AppCompatActivity {
                 getActionBarHeight()
         ));
         setSupportActionBar(toolbar);
+        if (getSupportActionBar() != null) {
+            getSupportActionBar().setTitle(R.string.app_name);
+        }
 
         FrameLayout content = new FrameLayout(this);
         content.setId(android.R.id.content);
@@ -143,13 +148,39 @@ public abstract class BaseNavigationActivity extends AppCompatActivity {
             return true;
         }
         if (id == R.id.action_about) {
-            startActivity(new Intent(this, AboutActivity.class));
+            showAboutDialog();
             return true;
         }
         if (id == R.id.action_exit) {
-            finishAffinity();
+            showExitDialog();
             return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    private void showAboutDialog() {
+        String deviceInfo = Build.MANUFACTURER + " " + Build.MODEL
+                + ", Android " + Build.VERSION.RELEASE
+                + " (API " + Build.VERSION.SDK_INT + ")";
+        String message = getString(
+                R.string.about_dialog_message,
+                getString(R.string.app_name),
+                getPackageName(),
+                deviceInfo
+        );
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle(R.string.menu_about)
+                .setMessage(message)
+                .setPositiveButton(android.R.string.ok, null)
+                .show();
+    }
+
+    private void showExitDialog() {
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle(R.string.menu_exit)
+                .setMessage(R.string.exit_dialog_message)
+                .setPositiveButton(R.string.exit_confirm, (dialog, which) -> finishAffinity())
+                .setNegativeButton(R.string.cancel, null)
+                .show();
     }
 }

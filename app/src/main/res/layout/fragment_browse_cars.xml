@@ -6,37 +6,38 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <androidx.core.widget.NestedScrollView
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="@color/background">
+        android:background="@color/background"
+        android:orientation="vertical">
 
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:paddingBottom="80dp">
+            android:layout_height="match_parent"
+            android:orientation="vertical">
 
-            <!-- Header -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="24dp">
+                android:paddingStart="14dp"
+                android:paddingTop="10dp"
+                android:paddingEnd="14dp"
+                android:paddingBottom="6dp">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Find your daily ride."
                     android:textColor="@color/on_surface"
-                    android:textSize="32sp"
+                    android:textSize="21sp"
                     android:textStyle="bold" />
 
-                <!-- Search Bar -->
                 <com.google.android.material.card.MaterialCardView
                     android:layout_width="match_parent"
-                    android:layout_height="56dp"
-                    android:layout_marginTop="24dp"
+                    android:layout_height="42dp"
+                    android:layout_marginTop="9dp"
                     app:cardCornerRadius="28dp"
                     app:cardElevation="2dp"
                     app:strokeWidth="0dp">
@@ -55,13 +56,14 @@
                             app:tint="@color/on_surface_variant" />
 
                         <EditText
+                            android:id="@+id/etCarSearch"
                             android:layout_width="match_parent"
                             android:layout_height="match_parent"
                             android:layout_toEndOf="@id/ivSearch"
                             android:background="@android:color/transparent"
                             android:hint="Search for a budget car..."
                             android:paddingStart="12dp"
-                            android:textSize="14sp" />
+                            android:textSize="13sp" />
                     </RelativeLayout>
                 </com.google.android.material.card.MaterialCardView>
             </LinearLayout>
@@ -70,18 +72,18 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="24dp"
+                android:layout_marginStart="14dp"
                 android:text="@string/filter"
                 android:textColor="@color/on_surface"
-                android:textSize="18sp"
+                android:textSize="14sp"
                 android:textStyle="bold" />
 
             <HorizontalScrollView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
+                android:layout_marginTop="4dp"
                 android:clipToPadding="false"
-                android:paddingHorizontal="24dp"
+                android:paddingHorizontal="14dp"
                 android:scrollbars="none">
 
                 <LinearLayout
@@ -89,55 +91,61 @@
                     android:layout_height="wrap_content"
                     android:orientation="horizontal">
 
-                    <com.google.android.material.textfield.TextInputLayout
-                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
-                        android:layout_width="156dp"
+                    <LinearLayout
+                        android:layout_width="124dp"
                         android:layout_height="wrap_content"
-                        android:hint="@string/filter_car_type">
+                        android:orientation="vertical">
 
-                        <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="@string/filter_car_type"
+                            android:textColor="@color/on_surface_variant"
+                            android:textSize="11sp" />
+
+                        <Spinner
                             android:id="@+id/dropdownTypeFilter"
                             android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:ellipsize="end"
-                            android:inputType="none"
-                            android:maxLines="1"
-                            android:textSize="14sp" />
-                    </com.google.android.material.textfield.TextInputLayout>
+                            android:layout_height="42dp" />
+                    </LinearLayout>
 
-                    <com.google.android.material.textfield.TextInputLayout
-                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
-                        android:layout_width="156dp"
+                    <LinearLayout
+                        android:layout_width="124dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="12dp"
-                        android:hint="@string/filter_transmission">
+                        android:layout_marginStart="8dp"
+                        android:orientation="vertical">
 
-                        <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="@string/filter_transmission"
+                            android:textColor="@color/on_surface_variant"
+                            android:textSize="11sp" />
+
+                        <Spinner
                             android:id="@+id/dropdownTransmissionFilter"
                             android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:ellipsize="end"
-                            android:inputType="none"
-                            android:maxLines="1"
-                            android:textSize="14sp" />
-                    </com.google.android.material.textfield.TextInputLayout>
+                            android:layout_height="42dp" />
+                    </LinearLayout>
 
-                    <com.google.android.material.textfield.TextInputLayout
-                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
-                        android:layout_width="156dp"
+                    <LinearLayout
+                        android:layout_width="124dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="12dp"
-                        android:hint="@string/filter_fuel_type">
+                        android:layout_marginStart="8dp"
+                        android:orientation="vertical">
 
-                        <com.google.android.material.textfield.MaterialAutoCompleteTextView
-                            android:id="@+id/dropdownFuelFilter"
+                        <TextView
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:ellipsize="end"
-                            android:inputType="none"
-                            android:maxLines="1"
-                            android:textSize="14sp" />
-                    </com.google.android.material.textfield.TextInputLayout>
+                            android:text="@string/filter_fuel_type"
+                            android:textColor="@color/on_surface_variant"
+                            android:textSize="11sp" />
+
+                        <Spinner
+                            android:id="@+id/dropdownFuelFilter"
+                            android:layout_width="match_parent"
+                            android:layout_height="42dp" />
+                    </LinearLayout>
                 </LinearLayout>
             </HorizontalScrollView>
 
@@ -145,8 +153,8 @@
             <RelativeLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="32dp"
-                android:paddingHorizontal="24dp">
+                android:layout_marginTop="8dp"
+                android:paddingHorizontal="14dp">
 
                 <TextView
                     android:id="@+id/tvNearbyTitle"
@@ -154,7 +162,7 @@
                     android:layout_height="wrap_content"
                     android:text="Available Nearby"
                     android:textColor="@color/on_surface"
-                    android:textSize="18sp"
+                    android:textSize="16sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -163,19 +171,22 @@
                     android:layout_below="@id/tvNearbyTitle"
                     android:text="Perfect for school, work, or errands"
                     android:textColor="@color/on_surface_variant"
-                    android:textSize="12sp" />
+                    android:textSize="11sp" />
 
             </RelativeLayout>
 
             <ListView
                 android:id="@+id/rvCars"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
+                android:layout_height="0dp"
+                android:layout_marginTop="6dp"
+                android:layout_weight="1"
+                android:clipToPadding="false"
                 android:divider="@android:color/transparent"
-                android:dividerHeight="12dp"
+                android:dividerHeight="8dp"
+                android:paddingBottom="16dp"
                 tools:listitem="@layout/item_car" />
 
-        </LinearLayout>
-    </androidx.core.widget.NestedScrollView>
+    </LinearLayout>
+    </LinearLayout>
 </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>

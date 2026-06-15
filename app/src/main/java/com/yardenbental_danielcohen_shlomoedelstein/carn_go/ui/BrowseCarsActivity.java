@@ -12,10 +12,15 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.util.Log;
 import android.view.View;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
+import android.widget.EditText;
 import android.widget.ListView;
+import android.widget.Spinner;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -28,7 +33,6 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.Priority;
-import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.AppPreferences;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.R;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.adapter.CarAdapter;
@@ -58,9 +62,11 @@ public class BrowseCarsActivity extends BaseNavigationActivity {
     private String activeTypeFilter;
     private String activeTransmissionFilter;
     private String activeFuelTypeFilter;
-    private MaterialAutoCompleteTextView dropdownTypeFilter;
-    private MaterialAutoCompleteTextView dropdownTransmissionFilter;
-    private MaterialAutoCompleteTextView dropdownFuelFilter;
+    private String activeSearchQuery = "";
+    private ListView rvCars;
+    private Spinner dropdownTypeFilter;
+    private Spinner dropdownTransmissionFilter;
+    private Spinner dropdownFuelFilter;
     private boolean isLoadingCars = false;
     private boolean pendingReload = false;
     private long lastLoadStartedAt = 0L;
@@ -78,7 +84,7 @@ public class BrowseCarsActivity extends BaseNavigationActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setTitle("Browse Cars");
+        setTitle(R.string.app_name);
         setScreenContent(R.layout.fragment_browse_cars, R.id.nav_browse_cars, true, true);
         View view = findViewById(android.R.id.content);
 
@@ -99,18 +105,37 @@ public class BrowseCarsActivity extends BaseNavigationActivity {
         );
 
         swipeRefresh = view.findViewById(R.id.swipeRefresh);
-        if (swipeRefresh != null) {
-            swipeRefresh.setOnRefreshListener(() -> requestCarsReload(true));
-            swipeRefresh.setRefreshing(false);
-        }
 
-        ListView rvCars = view.findViewById(R.id.rvCars);
+        rvCars = view.findViewById(R.id.rvCars);
         adapter = new CarAdapter(cars, car -> {
             Intent intent = new Intent(this, CarDetailsActivity.class);
             intent.putExtra("car", car);
             startActivity(intent);
         });
         rvCars.setAdapter(adapter);
+
+        if (swipeRefresh != null) {
+            swipeRefresh.setOnRefreshListener(() -> requestCarsReload(true, true));
+            swipeRefresh.setOnChildScrollUpCallback((parent, child) -> rvCars != null && rvCars.canScrollVertically(-1));
+            swipeRefresh.setRefreshing(false);
+        }
+
+        EditText searchField = view.findViewById(R.id.etCarSearch);
+        searchField.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                activeSearchQuery = s == null ? "" : s.toString().trim();
+                applyFiltersAndSort();
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+            }
+        });
 
         dropdownTypeFilter = view.findViewById(R.id.dropdownTypeFilter);
         dropdownTransmissionFilter = view.findViewById(R.id.dropdownTransmissionFilter);
@@ -167,6 +192,10 @@ public class BrowseCarsActivity extends BaseNavigationActivity {
     }
 
     private void requestCarsReload(boolean force) {
+        requestCarsReload(force, false);
+    }
+
+    private void requestCarsReload(boolean force, boolean forceLocationRefresh) {
         long now = System.currentTimeMillis();
         if (!force && now - lastLoadStartedAt < MIN_RELOAD_GAP_MS) {
             setRefreshingState(false);
@@ -177,7 +206,7 @@ public class BrowseCarsActivity extends BaseNavigationActivity {
             setRefreshingState(false);
             return;
         }
-        loadCars();
+        loadCars(forceLocationRefresh);
     }
 
     private void refreshOnResume() {
@@ -240,12 +269,19 @@ public class BrowseCarsActivity extends BaseNavigationActivity {
         maybeRefreshLocation();
     }
 
-    private void loadCars() {
+    private void loadCars(boolean forceLocationRefresh) {
         isLoadingCars = true;
         lastLoadStartedAt = System.currentTimeMillis();
         setRefreshingState(true);
-        maybeRefreshLocation();
 
+        if (needsLocationRefresh(forceLocationRefresh)) {
+            requestCurrentLocationOnce(this::loadCarsFromFirestore);
+        } else {
+            loadCarsFromFirestore();
+        }
+    }
+
+    private void loadCarsFromFirestore() {
         CarDiscoveryHelper.loadAvailableCars(this, System.currentTimeMillis(), new CarDiscoveryHelper.CarsResultCallback() {
             @Override
             public void onSuccess(List<Car> loadedCars) {
@@ -262,6 +298,13 @@ public class BrowseCarsActivity extends BaseNavigationActivity {
                 finishLoading();
             }
         });
+    }
+
+    private boolean needsLocationRefresh(boolean forceRefresh) {
+        return hasLocationPermission()
+                && (forceRefresh
+                || currentLocation == null
+                || System.currentTimeMillis() - lastLocationRefreshAt >= LOCATION_REFRESH_INTERVAL_MS);
     }
 
     private void applyFiltersAndSort() {
@@ -282,48 +325,72 @@ public class BrowseCarsActivity extends BaseNavigationActivity {
     private boolean matchesTypeFilter(Car car) {
         return CarDiscoveryHelper.matchesTypeFilter(car, activeTypeFilter)
                 && CarDiscoveryHelper.matchesTransmissionFilter(car, activeTransmissionFilter)
-                && CarDiscoveryHelper.matchesFuelTypeFilter(car, activeFuelTypeFilter);
+                && CarDiscoveryHelper.matchesFuelTypeFilter(car, activeFuelTypeFilter)
+                && matchesSearchQuery(car);
+    }
+
+    private boolean matchesSearchQuery(Car car) {
+        if (activeSearchQuery == null || activeSearchQuery.isEmpty()) {
+            return true;
+        }
+        String query = activeSearchQuery.toLowerCase(java.util.Locale.ROOT);
+        return containsIgnoreCase(car.getName(), query)
+                || containsIgnoreCase(car.getType(), query)
+                || containsIgnoreCase(car.getLocation(), query)
+                || containsIgnoreCase(car.getTransmission(), query)
+                || containsIgnoreCase(car.getFuelType(), query)
+                || containsIgnoreCase(car.getTag(), query);
+    }
+
+    private boolean containsIgnoreCase(@Nullable String value, String query) {
+        return value != null && value.toLowerCase(java.util.Locale.ROOT).contains(query);
     }
 
     private void setupFilterDropdowns() {
-        dropdownTypeFilter.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, getResources().getStringArray(R.array.filter_all_type_options)));
-        dropdownTransmissionFilter.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, getResources().getStringArray(R.array.filter_all_transmission_options)));
-        dropdownFuelFilter.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, getResources().getStringArray(R.array.filter_all_fuel_options)));
-
-        setupDropdownField(dropdownTypeFilter);
-        setupDropdownField(dropdownTransmissionFilter);
-        setupDropdownField(dropdownFuelFilter);
-
-        dropdownTypeFilter.setText(getString(R.string.filter_all_types), false);
-        dropdownTransmissionFilter.setText(getString(R.string.filter_all_transmissions), false);
-        dropdownFuelFilter.setText(getString(R.string.filter_all_fuel_types), false);
-
-        dropdownTypeFilter.setOnItemClickListener((parent, view, position, id) -> {
-            String selected = parent.getItemAtPosition(position).toString();
-            setTypeFilter(isAllSelection(selected, getString(R.string.filter_all_types)) ? null : selected);
-        });
-        dropdownTransmissionFilter.setOnItemClickListener((parent, view, position, id) -> {
-            String selected = parent.getItemAtPosition(position).toString();
-            setTransmissionFilter(isAllSelection(selected, getString(R.string.filter_all_transmissions)) ? null : selected);
-        });
-        dropdownFuelFilter.setOnItemClickListener((parent, view, position, id) -> {
-            String selected = parent.getItemAtPosition(position).toString();
-            setFuelTypeFilter(isAllSelection(selected, getString(R.string.filter_all_fuel_types)) ? null : selected);
-        });
+        setupSpinner(dropdownTypeFilter, R.array.filter_all_type_options, getString(R.string.filter_all_types), selected ->
+                setTypeFilter(isAllSelection(selected, getString(R.string.filter_all_types)) ? null : selected));
+        setupSpinner(dropdownTransmissionFilter, R.array.filter_all_transmission_options, getString(R.string.filter_all_transmissions), selected ->
+                setTransmissionFilter(isAllSelection(selected, getString(R.string.filter_all_transmissions)) ? null : selected));
+        setupSpinner(dropdownFuelFilter, R.array.filter_all_fuel_options, getString(R.string.filter_all_fuel_types), selected ->
+                setFuelTypeFilter(isAllSelection(selected, getString(R.string.filter_all_fuel_types)) ? null : selected));
     }
 
     private boolean isAllSelection(String value, String allLabel) {
         return value.equalsIgnoreCase(allLabel);
     }
 
-    private void setupDropdownField(MaterialAutoCompleteTextView field) {
-        field.setKeyListener(null);
-        field.setOnClickListener(v -> field.showDropDown());
-        field.setOnFocusChangeListener((v, hasFocus) -> {
-            if (hasFocus) {
-                field.showDropDown();
+    private void setupSpinner(Spinner spinner, int optionsArrayId, String defaultValue, SpinnerSelectionListener listener) {
+        ArrayAdapter<CharSequence> spinnerAdapter = ArrayAdapter.createFromResource(
+                this,
+                optionsArrayId,
+                android.R.layout.simple_spinner_item
+        );
+        spinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinner.setAdapter(spinnerAdapter);
+        spinner.setSelection(indexOf(defaultValue, spinnerAdapter));
+        spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                listener.onSelected(parent.getItemAtPosition(position).toString());
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
             }
         });
+    }
+
+    private int indexOf(String value, ArrayAdapter<CharSequence> adapter) {
+        for (int i = 0; i < adapter.getCount(); i++) {
+            if (value.equalsIgnoreCase(adapter.getItem(i).toString())) {
+                return i;
+            }
+        }
+        return 0;
+    }
+
+    private interface SpinnerSelectionListener {
+        void onSelected(String value);
     }
 
     private void finishLoading() {
@@ -352,30 +419,55 @@ public class BrowseCarsActivity extends BaseNavigationActivity {
     }
 
     private void requestCurrentLocationOnce() {
+        requestCurrentLocationOnce(null);
+    }
+
+    private void requestCurrentLocationOnce(@Nullable Runnable onComplete) {
         fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
                 .addOnSuccessListener(location -> {
                     lastLocationRefreshAt = System.currentTimeMillis();
                     if (location != null) {
                         currentLocation = location;
-                        applyFiltersAndSort();
+                        applyFiltersAfterLocationChange();
+                        runLocationComplete(onComplete);
                     } else {
                         fusedLocationClient.getLastLocation()
                                 .addOnSuccessListener(lastLocation -> {
                                     lastLocationRefreshAt = System.currentTimeMillis();
                                     if (lastLocation != null) {
                                         currentLocation = lastLocation;
-                                        applyFiltersAndSort();
+                                        applyFiltersAfterLocationChange();
                                     }
-                                });
+                                    runLocationComplete(onComplete);
+                                })
+                                .addOnFailureListener(error -> runLocationComplete(onComplete));
                     }
-                });
+                })
+                .addOnFailureListener(error -> runLocationComplete(onComplete));
+    }
+
+    private void applyFiltersAfterLocationChange() {
+        if (!allCars.isEmpty()) {
+            applyFiltersAndSort();
+        }
+    }
+
+    private void runLocationComplete(@Nullable Runnable onComplete) {
+        if (onComplete != null) {
+            onComplete.run();
+        }
     }
 
     private void maybeRefreshLocation() {
+        maybeRefreshLocation(false);
+    }
+
+    private void maybeRefreshLocation(boolean forceRefresh) {
         if (!hasLocationPermission()) {
             return;
         }
-        if (currentLocation != null
+        if (!forceRefresh
+                && currentLocation != null
                 && System.currentTimeMillis() - lastLocationRefreshAt < LOCATION_REFRESH_INTERVAL_MS) {
             return;
         }

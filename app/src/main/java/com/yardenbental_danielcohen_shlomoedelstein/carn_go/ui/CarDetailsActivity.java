@@ -32,7 +32,7 @@ public class CarDetailsActivity extends BaseNavigationActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setTitle("Car Details");
+        setTitle(R.string.app_name);
         setScreenContent(R.layout.fragment_car_details, 0, false, true);
         View view = findViewById(android.R.id.content);
 

@@ -2,20 +2,14 @@ package com.yardenbental_danielcohen_shlomoedelstein.carn_go.ui;
 
 import android.app.AlarmManager;
 import android.app.PendingIntent;
+import android.app.DatePickerDialog;
+import android.app.TimePickerDialog;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
-
-import com.google.android.material.datepicker.CalendarConstraints;
-import com.google.android.material.datepicker.CompositeDateValidator;
-import com.google.android.material.datepicker.DateValidatorPointBackward;
-import com.google.android.material.datepicker.DateValidatorPointForward;
-import com.google.android.material.datepicker.MaterialDatePicker;
-import com.google.android.material.timepicker.MaterialTimePicker;
-import com.google.android.material.timepicker.TimeFormat;
 
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -52,14 +46,12 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
-import java.util.TimeZone;
-import java.util.concurrent.TimeUnit;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 
 import org.json.JSONObject;
 
 /**
- * Fragment that displays a summary of the booking for a selected car.
+ * Activity that displays a summary of the booking for a selected car.
  */
 public class BookingSummaryActivity extends BaseNavigationActivity {
 
@@ -72,7 +64,7 @@ public class BookingSummaryActivity extends BaseNavigationActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setTitle("Booking Summary");
+        setTitle(R.string.app_name);
         setScreenContent(R.layout.fragment_booking_summary, 0, false, true);
         View view = findViewById(android.R.id.content);
         contentView = view;
@@ -216,91 +208,48 @@ public class BookingSummaryActivity extends BaseNavigationActivity {
 
     private void pickDateTime(boolean isStart, TextView tvDisplay, TextView tvTotal, TextView tvTotalLabel, Car car) {
         long now = System.currentTimeMillis();
-
-        // MaterialDatePicker works exclusively with UTC for its internal logic.
-        Calendar calUtc = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
-        calUtc.set(Calendar.HOUR_OF_DAY, 0);
-        calUtc.set(Calendar.MINUTE, 0);
-        calUtc.set(Calendar.SECOND, 0);
-        calUtc.set(Calendar.MILLISECOND, 0);
-        long startOfTodayUtc = calUtc.getTimeInMillis();
-
-        // 1. SET ABSOLUTE BOUNDARIES (The Car's Availability)
-        // We want the user to see the full range the car is available,
-        // regardless of whether they are picking start or end.
-        long minDate = Math.max(car.getAvailableFrom(), startOfTodayUtc);
+        long minDate = Math.max(car.getAvailableFrom(), startOfDay(now));
         long maxDate = car.getAvailableTo();
 
-        // 2. ALIGN VALIDATORS TO MIDNIGHT UTC
-        calUtc.setTimeInMillis(minDate);
-        calUtc.set(Calendar.HOUR_OF_DAY, 0);
-        calUtc.set(Calendar.MINUTE, 0);
-        calUtc.set(Calendar.SECOND, 0);
-        calUtc.set(Calendar.MILLISECOND, 0);
-        long validatorMin = calUtc.getTimeInMillis();
-
-        calUtc.setTimeInMillis(maxDate);
-        calUtc.set(Calendar.HOUR_OF_DAY, 0);
-        calUtc.set(Calendar.MINUTE, 0);
-        calUtc.set(Calendar.SECOND, 0);
-        calUtc.set(Calendar.MILLISECOND, 0);
-        long validatorMax = calUtc.getTimeInMillis();
-
-        // 3. CONFIGURE CALENDAR CONSTRAINTS
-        CalendarConstraints.Builder constraintsBuilder = new CalendarConstraints.Builder();
-        constraintsBuilder.setStart(validatorMin);
-        constraintsBuilder.setEnd(validatorMax);
-
-        List<CalendarConstraints.DateValidator> validators = new ArrayList<>();
-        validators.add(DateValidatorPointForward.from(validatorMin));
-        validators.add(DateValidatorPointBackward.before(validatorMax));
-
-        constraintsBuilder.setValidator(CompositeDateValidator.allOf(validators));
-
-        // 4. SET INITIAL SELECTION
         long currentSelection = isStart ? selectedStartTimestamp : selectedEndTimestamp;
         if (currentSelection == 0) {
             currentSelection = (isStart) ? minDate : Math.min(maxDate, minDate + TimeUnit.DAYS.toMillis(1));
         }
+        currentSelection = Math.max(minDate, Math.min(currentSelection, maxDate));
 
-        // Ensure selection is within bounds
-        if (currentSelection < validatorMin) currentSelection = validatorMin;
-        if (currentSelection > validatorMax) currentSelection = validatorMax;
-
-        MaterialDatePicker<Long> datePicker = MaterialDatePicker.Builder.datePicker()
-                .setTitleText("Select " + (isStart ? "Start" : "End") + " Date")
-                .setSelection(currentSelection)
-                .setCalendarConstraints(constraintsBuilder.build())
-                .build();
-
-        datePicker.addOnPositiveButtonClickListener(selectedDate -> {
-            // Proceed to Time Picker
-            showTimePicker(selectedDate, isStart, tvDisplay, tvTotal, tvTotalLabel, car, now);
-        });
-        datePicker.show(getSupportFragmentManager(), "DATE_PICKER");
+        Calendar initialDate = Calendar.getInstance();
+        initialDate.setTimeInMillis(currentSelection);
+        DatePickerDialog datePicker = new DatePickerDialog(
+                this,
+                (view, year, month, dayOfMonth) -> {
+                    Calendar selectedDate = Calendar.getInstance();
+                    selectedDate.set(year, month, dayOfMonth, 0, 0, 0);
+                    selectedDate.set(Calendar.MILLISECOND, 0);
+                    showTimePicker(selectedDate.getTimeInMillis(), isStart, tvDisplay, tvTotal, tvTotalLabel, car, now);
+                },
+                initialDate.get(Calendar.YEAR),
+                initialDate.get(Calendar.MONTH),
+                initialDate.get(Calendar.DAY_OF_MONTH)
+        );
+        datePicker.setTitle("Select " + (isStart ? "Start" : "End") + " Date");
+        datePicker.getDatePicker().setMinDate(startOfDay(minDate));
+        datePicker.getDatePicker().setMaxDate(startOfDay(maxDate));
+        datePicker.show();
     }
 
-    // Extracted Time Picker logic for clarity
     private void showTimePicker(long selectedDate, boolean isStart, TextView tvDisplay, TextView tvTotal, TextView tvTotalLabel, Car car, long now) {
         Calendar c = Calendar.getInstance();
         long baseTimestamp = isStart ? selectedStartTimestamp : selectedEndTimestamp;
         if (baseTimestamp == 0) baseTimestamp = selectedDate;
         c.setTimeInMillis(baseTimestamp);
 
-        MaterialTimePicker timePicker = new MaterialTimePicker.Builder()
-                .setTimeFormat(TimeFormat.CLOCK_24H)
-                .setHour(c.get(Calendar.HOUR_OF_DAY))
-                .setMinute(c.get(Calendar.MINUTE))
-                .setTitleText("Select " + (isStart ? "Start" : "End") + " Time")
-                .build();
-
-        timePicker.addOnPositiveButtonClickListener(v -> {
+        TimePickerDialog timePicker = new TimePickerDialog(this, (view, hourOfDay, minute) -> {
             Calendar utcCal = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
             utcCal.setTimeInMillis(selectedDate);
 
             Calendar localCal = Calendar.getInstance();
             localCal.set(utcCal.get(Calendar.YEAR), utcCal.get(Calendar.MONTH), utcCal.get(Calendar.DAY_OF_MONTH),
-                    timePicker.getHour(), timePicker.getMinute(), 0);
+                    hourOfDay, minute, 0);
             localCal.set(Calendar.MILLISECOND, 0);
 
             long newTimestamp = localCal.getTimeInMillis();
@@ -324,8 +273,19 @@ public class BookingSummaryActivity extends BaseNavigationActivity {
                 selectedEndTimestamp = newTimestamp;
             }
             updateBookingSummary(tvDisplay, tvTotal, tvTotalLabel, car);
-        });
-        timePicker.show(getSupportFragmentManager(), "TIME_PICKER");
+        }, c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE), true);
+        timePicker.setTitle("Select " + (isStart ? "Start" : "End") + " Time");
+        timePicker.show();
+    }
+
+    private long startOfDay(long timestamp) {
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTimeInMillis(timestamp);
+        calendar.set(Calendar.HOUR_OF_DAY, 0);
+        calendar.set(Calendar.MINUTE, 0);
+        calendar.set(Calendar.SECOND, 0);
+        calendar.set(Calendar.MILLISECOND, 0);
+        return calendar.getTimeInMillis();
     }
 
     private void updateBookingSummary(TextView tvDisplay, TextView tvTotal, TextView tvTotalLabel, Car car) {
@@ -491,9 +451,9 @@ public class BookingSummaryActivity extends BaseNavigationActivity {
 
                     // Simulation logic: Only show the "Owner Alert" if the current user IS the owner
                     if (currentUserId != null && currentUserId.equals(ownerId)) {
-                        showLocalNotification(appContext, "[TEST] Alert for Owner", "Your car " + car.getName() + " has a new booking request!");
+                        showLocalNotification(appContext, "New Booking Request", "Your car " + car.getName() + " has a new booking request!");
                     } else {
-                        sendFCMNotification(appContext, token, "[TEST] Alert for Owner", "Your car " + car.getName() + " has a new booking request!");
+                        sendFCMNotification(appContext, token, "New Booking Request", "Your car " + car.getName() + " has a new booking request!");
                     }
                 }
             } else {

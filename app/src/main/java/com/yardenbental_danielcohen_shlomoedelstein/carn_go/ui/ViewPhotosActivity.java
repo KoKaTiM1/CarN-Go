@@ -17,7 +17,7 @@ public class ViewPhotosActivity extends BaseNavigationActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setTitle("Rental Photos");
+        setTitle(R.string.app_name);
         setScreenContent(R.layout.fragment_view_photos, 0, false, true);
         View view = findViewById(android.R.id.content);
         booking = (Booking) getIntent().getSerializableExtra("booking");

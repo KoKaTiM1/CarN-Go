@@ -90,8 +90,8 @@ public class SplashActivity extends BaseNavigationActivity {
             shouldShowResults = savedInstanceState.getBoolean(STATE_RESULTS_VISIBLE, false);
             hasSearched = savedInstanceState.getBoolean(STATE_HAS_SEARCHED, false);
         }
-        setTitle("");
-        setScreenContent(R.layout.fragment_splash, 0, false, false);
+        setTitle(R.string.app_name);
+        setScreenContent(R.layout.fragment_splash, 0, false, true);
         View view = findViewById(android.R.id.content);
 
         notificationPermissionLauncher = registerForActivityResult(
@@ -540,9 +540,9 @@ public class SplashActivity extends BaseNavigationActivity {
     }
 
     private void updateCircleSizing(boolean compact) {
-        int outerSize = dpToPx(compact ? 220 : 280);
-        int innerSize = dpToPx(compact ? 176 : 220);
-        int buttonSize = dpToPx(compact ? 132 : 168);
+        int outerSize = dpToPx(compact ? 180 : 280);
+        int innerSize = dpToPx(compact ? 144 : 220);
+        int buttonSize = dpToPx(compact ? 112 : 168);
 
         ViewGroup.LayoutParams circleLayoutParams = layoutCircle.getLayoutParams();
         circleLayoutParams.width = outerSize;

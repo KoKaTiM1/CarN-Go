@@ -2,6 +2,8 @@ package com.yardenbental_danielcohen_shlomoedelstein.carn_go.ui;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.DatePickerDialog;
+import android.app.TimePickerDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
@@ -25,6 +27,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.widget.Spinner;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -36,13 +39,6 @@ import androidx.core.content.ContextCompat;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.Priority;
-import com.google.android.material.datepicker.CalendarConstraints;
-import com.google.android.material.datepicker.DateValidatorPointForward;
-import com.google.android.material.datepicker.MaterialDatePicker;
-import com.google.android.material.textfield.MaterialAutoCompleteTextView;
-import com.google.android.material.textfield.TextInputEditText;
-import com.google.android.material.timepicker.MaterialTimePicker;
-import com.google.android.material.timepicker.TimeFormat;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.R;
@@ -100,7 +96,7 @@ public class MyCarsActivity extends BaseNavigationActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        setTitle("My Cars");
+        setTitle(R.string.app_name);
         setScreenContent(R.layout.fragment_my_cars, R.id.nav_my_cars, true, true);
         View view = findViewById(android.R.id.content);
 
@@ -253,13 +249,13 @@ public class MyCarsActivity extends BaseNavigationActivity {
 
     private void showEditCarDialog(Car car) {
         View dialogView = LayoutInflater.from(MyCarsActivity.this).inflate(R.layout.dialog_add_car, null);
-        TextInputEditText etName = dialogView.findViewById(R.id.etCarName);
-        TextInputEditText etPrice = dialogView.findViewById(R.id.etPrice);
-        TextInputEditText etLocation = dialogView.findViewById(R.id.etLocation);
-        MaterialAutoCompleteTextView etType = dialogView.findViewById(R.id.etType);
-        MaterialAutoCompleteTextView etTransmission = dialogView.findViewById(R.id.etTransmission);
-        TextInputEditText etSeats = dialogView.findViewById(R.id.etSeats);
-        MaterialAutoCompleteTextView etFuelType = dialogView.findViewById(R.id.etFuelType);
+        EditText etName = dialogView.findViewById(R.id.etCarName);
+        EditText etPrice = dialogView.findViewById(R.id.etPrice);
+        EditText etLocation = dialogView.findViewById(R.id.etLocation);
+        Spinner etType = dialogView.findViewById(R.id.etType);
+        Spinner etTransmission = dialogView.findViewById(R.id.etTransmission);
+        EditText etSeats = dialogView.findViewById(R.id.etSeats);
+        Spinner etFuelType = dialogView.findViewById(R.id.etFuelType);
         Button btnUseCurrentLocation = dialogView.findViewById(R.id.btnUseCurrentLocation);
         Button btnPickStart = dialogView.findViewById(R.id.btnPickStart);
         Button btnPickEnd = dialogView.findViewById(R.id.btnPickEnd);
@@ -270,10 +266,10 @@ public class MyCarsActivity extends BaseNavigationActivity {
         etName.setText(car.getName());
         etPrice.setText(String.valueOf(car.getPricePerHour()));
         etLocation.setText(car.getLocation());
-        etType.setText(normalizeCarType(car.getType()), false);
-        etTransmission.setText(normalizeTransmission(car.getTransmission()), false);
+        setSpinnerSelection(etType, normalizeCarType(car.getType()));
+        setSpinnerSelection(etTransmission, normalizeTransmission(car.getTransmission()));
         etSeats.setText(String.valueOf(car.getSeats()));
-        etFuelType.setText(normalizeFuelType(car.getFuelType()), false);
+        setSpinnerSelection(etFuelType, normalizeFuelType(car.getFuelType()));
 
         selectedStartTimestamp = car.getAvailableFrom();
         selectedEndTimestamp = car.getAvailableTo();
@@ -348,13 +344,13 @@ public class MyCarsActivity extends BaseNavigationActivity {
 
     private void showAddCarDialog(Object imageSource) {
         View dialogView = LayoutInflater.from(MyCarsActivity.this).inflate(R.layout.dialog_add_car, null);
-        TextInputEditText etName = dialogView.findViewById(R.id.etCarName);
-        TextInputEditText etPrice = dialogView.findViewById(R.id.etPrice);
-        TextInputEditText etLocation = dialogView.findViewById(R.id.etLocation);
-        MaterialAutoCompleteTextView etType = dialogView.findViewById(R.id.etType);
-        MaterialAutoCompleteTextView etTransmission = dialogView.findViewById(R.id.etTransmission);
-        TextInputEditText etSeats = dialogView.findViewById(R.id.etSeats);
-        MaterialAutoCompleteTextView etFuelType = dialogView.findViewById(R.id.etFuelType);
+        EditText etName = dialogView.findViewById(R.id.etCarName);
+        EditText etPrice = dialogView.findViewById(R.id.etPrice);
+        EditText etLocation = dialogView.findViewById(R.id.etLocation);
+        Spinner etType = dialogView.findViewById(R.id.etType);
+        Spinner etTransmission = dialogView.findViewById(R.id.etTransmission);
+        EditText etSeats = dialogView.findViewById(R.id.etSeats);
+        Spinner etFuelType = dialogView.findViewById(R.id.etFuelType);
         Button btnUseCurrentLocation = dialogView.findViewById(R.id.btnUseCurrentLocation);
         Button btnPickStart = dialogView.findViewById(R.id.btnPickStart);
         Button btnPickEnd = dialogView.findViewById(R.id.btnPickEnd);
@@ -362,9 +358,9 @@ public class MyCarsActivity extends BaseNavigationActivity {
         LocationDraft locationDraft = new LocationDraft(null, null, null);
 
         setupCarChoiceDropdowns(etType, etTransmission, etFuelType);
-        etType.setText(normalizeCarType(null), false);
-        etTransmission.setText(normalizeTransmission(null), false);
-        etFuelType.setText(normalizeFuelType(null), false);
+        setSpinnerSelection(etType, normalizeCarType(null));
+        setSpinnerSelection(etTransmission, normalizeTransmission(null));
+        setSpinnerSelection(etFuelType, normalizeFuelType(null));
         selectedStartTimestamp = 0;
         selectedEndTimestamp = 0;
 
@@ -397,30 +393,21 @@ public class MyCarsActivity extends BaseNavigationActivity {
 
     private void pickDateTime(boolean isStart, TextView tvDisplay) {
         long minimumSelectableTimestamp = getMinimumSelectableTimestamp();
-        Calendar todayUtc = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
-        todayUtc.setTimeInMillis(minimumSelectableTimestamp);
-        todayUtc.set(Calendar.HOUR_OF_DAY, 0);
-        todayUtc.set(Calendar.MINUTE, 0);
-        todayUtc.set(Calendar.SECOND, 0);
-        todayUtc.set(Calendar.MILLISECOND, 0);
-        long startOfTodayUtc = todayUtc.getTimeInMillis();
-
-        CalendarConstraints.Builder constraintsBuilder = new CalendarConstraints.Builder();
-        constraintsBuilder.setValidator(DateValidatorPointForward.from(startOfTodayUtc));
-
         long suggestedStartTimestamp = getSuggestedStartTimestamp();
         long suggestedEndTimestamp = getSuggestedEndTimestamp();
 
         long defaultSelection = isStart ? suggestedStartTimestamp : suggestedEndTimestamp;
         long selection = Math.max(defaultSelection, minimumSelectableTimestamp);
+        Calendar initialDate = Calendar.getInstance();
+        initialDate.setTimeInMillis(selection);
 
-        MaterialDatePicker<Long> datePicker = MaterialDatePicker.Builder.datePicker()
-                .setTitleText(isStart ? R.string.select_start_date : R.string.select_end_date)
-                .setSelection(selection)
-                .setCalendarConstraints(constraintsBuilder.build())
-                .build();
+        DatePickerDialog datePicker = new DatePickerDialog(
+                MyCarsActivity.this,
+                (view, year, month, dayOfMonth) -> {
+            Calendar selectedDate = Calendar.getInstance();
+            selectedDate.set(year, month, dayOfMonth, 0, 0, 0);
+            selectedDate.set(Calendar.MILLISECOND, 0);
 
-        datePicker.addOnPositiveButtonClickListener(selectedDate -> {
             Calendar c = Calendar.getInstance();
             if (isStart) {
                 c.setTimeInMillis(suggestedStartTimestamp);
@@ -428,18 +415,11 @@ public class MyCarsActivity extends BaseNavigationActivity {
                 c.setTimeInMillis(suggestedEndTimestamp);
             }
 
-            MaterialTimePicker timePicker = new MaterialTimePicker.Builder()
-                    .setTimeFormat(TimeFormat.CLOCK_24H)
-                    .setHour(c.get(Calendar.HOUR_OF_DAY))
-                    .setMinute(c.get(Calendar.MINUTE))
-                    .setTitleText(isStart ? R.string.select_start_time : R.string.select_end_time)
-                    .build();
-
-            timePicker.addOnPositiveButtonClickListener(v -> {
+            TimePickerDialog timePicker = new TimePickerDialog(MyCarsActivity.this, (timeView, hourOfDay, minute) -> {
                 Calendar calendar = Calendar.getInstance();
-                calendar.setTimeInMillis(selectedDate);
-                calendar.set(Calendar.HOUR_OF_DAY, timePicker.getHour());
-                calendar.set(Calendar.MINUTE, timePicker.getMinute());
+                calendar.setTimeInMillis(selectedDate.getTimeInMillis());
+                calendar.set(Calendar.HOUR_OF_DAY, hourOfDay);
+                calendar.set(Calendar.MINUTE, minute);
                 calendar.set(Calendar.SECOND, 0);
                 calendar.set(Calendar.MILLISECOND, 0);
 
@@ -462,10 +442,27 @@ public class MyCarsActivity extends BaseNavigationActivity {
                     selectedEndTimestamp = chosenEnd;
                 }
                 updateAvailabilityText(tvDisplay);
-            });
-            timePicker.show(getSupportFragmentManager(), "TIME_PICKER");
-        });
-        datePicker.show(getSupportFragmentManager(), "DATE_PICKER");
+            }, c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE), true);
+            timePicker.setTitle(isStart ? R.string.select_start_time : R.string.select_end_time);
+            timePicker.show();
+        },
+                initialDate.get(Calendar.YEAR),
+                initialDate.get(Calendar.MONTH),
+                initialDate.get(Calendar.DAY_OF_MONTH)
+        );
+        datePicker.setTitle(isStart ? R.string.select_start_date : R.string.select_end_date);
+        datePicker.getDatePicker().setMinDate(startOfDay(minimumSelectableTimestamp));
+        datePicker.show();
+    }
+
+    private long startOfDay(long timestamp) {
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTimeInMillis(timestamp);
+        calendar.set(Calendar.HOUR_OF_DAY, 0);
+        calendar.set(Calendar.MINUTE, 0);
+        calendar.set(Calendar.SECOND, 0);
+        calendar.set(Calendar.MILLISECOND, 0);
+        return calendar.getTimeInMillis();
     }
 
     private void updateAvailabilityText(TextView tvDisplay) {
@@ -514,20 +511,20 @@ public class MyCarsActivity extends BaseNavigationActivity {
     }
 
     @Nullable
-    private CarFormData buildCarFormData(TextInputEditText etName,
-                                         TextInputEditText etPrice,
-                                         TextInputEditText etLocation,
-                                         MaterialAutoCompleteTextView etType,
-                                         MaterialAutoCompleteTextView etTransmission,
-                                         TextInputEditText etSeats,
-                                         MaterialAutoCompleteTextView etFuelType) {
+    private CarFormData buildCarFormData(EditText etName,
+                                         EditText etPrice,
+                                         EditText etLocation,
+                                         Spinner etType,
+                                         Spinner etTransmission,
+                                         EditText etSeats,
+                                         Spinner etFuelType) {
         String name = safeText(etName);
         String priceStr = safeText(etPrice);
         String location = safeText(etLocation);
-        String type = safeText(etType);
-        String transmission = safeText(etTransmission);
+        String type = safeSpinnerText(etType);
+        String transmission = safeSpinnerText(etTransmission);
         String seatsStr = safeText(etSeats);
-        String fuelType = safeText(etFuelType);
+        String fuelType = safeSpinnerText(etFuelType);
 
         if (name.isEmpty() || priceStr.isEmpty() || location.isEmpty()) {
             Toast.makeText(MyCarsActivity.this, R.string.error_required_fields, Toast.LENGTH_SHORT).show();
@@ -544,26 +541,32 @@ public class MyCarsActivity extends BaseNavigationActivity {
         }
     }
 
-    private void setupCarChoiceDropdowns(MaterialAutoCompleteTextView typeField,
-                                         MaterialAutoCompleteTextView transmissionField,
-                                         MaterialAutoCompleteTextView fuelTypeField) {
-        typeField.setAdapter(new ArrayAdapter<>(MyCarsActivity.this, android.R.layout.simple_list_item_1, getResources().getStringArray(R.array.car_type_options)));
-        transmissionField.setAdapter(new ArrayAdapter<>(MyCarsActivity.this, android.R.layout.simple_list_item_1, getResources().getStringArray(R.array.transmission_options)));
-        fuelTypeField.setAdapter(new ArrayAdapter<>(MyCarsActivity.this, android.R.layout.simple_list_item_1, getResources().getStringArray(R.array.fuel_type_options)));
-
-        setupDropdownField(typeField);
-        setupDropdownField(transmissionField);
-        setupDropdownField(fuelTypeField);
+    private void setupCarChoiceDropdowns(Spinner typeField,
+                                         Spinner transmissionField,
+                                         Spinner fuelTypeField) {
+        setupSpinner(typeField, R.array.car_type_options);
+        setupSpinner(transmissionField, R.array.transmission_options);
+        setupSpinner(fuelTypeField, R.array.fuel_type_options);
     }
 
-    private void setupDropdownField(MaterialAutoCompleteTextView field) {
-        field.setKeyListener(null);
-        field.setOnClickListener(v -> field.showDropDown());
-        field.setOnFocusChangeListener((v, hasFocus) -> {
-            if (hasFocus) {
-                field.showDropDown();
+    private void setupSpinner(Spinner spinner, int optionsArrayId) {
+        ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(
+                MyCarsActivity.this,
+                optionsArrayId,
+                android.R.layout.simple_spinner_item
+        );
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinner.setAdapter(adapter);
+    }
+
+    private void setSpinnerSelection(Spinner spinner, String value) {
+        for (int i = 0; i < spinner.getCount(); i++) {
+            if (value.equalsIgnoreCase(spinner.getItemAtPosition(i).toString())) {
+                spinner.setSelection(i);
+                return;
             }
-        });
+        }
+        spinner.setSelection(0);
     }
 
     @NonNull
@@ -622,6 +625,12 @@ public class MyCarsActivity extends BaseNavigationActivity {
     @NonNull
     private String safeText(TextView field) {
         return field.getText() != null ? field.getText().toString().trim() : "";
+    }
+
+    @NonNull
+    private String safeSpinnerText(Spinner spinner) {
+        Object selected = spinner.getSelectedItem();
+        return selected != null ? selected.toString().trim() : "";
     }
 
     private void uploadCarData(String carName, double price, String location, Double latitude, Double longitude, String type, String transmission, int seats, String fuelType, Object imageSource, long start, long end) {

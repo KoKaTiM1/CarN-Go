@@ -12,7 +12,7 @@
         android:layout_height="?attr/actionBarSize"
         android:background="?attr/colorPrimary"
         android:navigationIcon="@android:drawable/ic_menu_revert"
-        android:title="@string/menu_settings"
+        android:title="@string/app_name"
         android:titleTextColor="@android:color/white" />
 
     <LinearLayout
@@ -46,15 +46,12 @@
             android:textSize="18sp"
             android:textStyle="bold" />
 
-        <com.google.android.material.slider.Slider
+        <SeekBar
             android:id="@+id/sliderSearchRadius"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:valueFrom="0"
-            android:valueTo="4"
-            android:stepSize="1"
-            app:labelBehavior="gone" />
+            android:max="4" />
 
         <TextView
             android:layout_width="match_parent"
@@ -73,7 +70,7 @@
             android:textColor="@color/on_surface_variant"
             android:textSize="14sp" />
 
-        <com.google.android.material.switchmaterial.SwitchMaterial
+        <Switch
             android:id="@+id/switchBookingReminders"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -97,7 +94,7 @@
             android:textColor="@color/on_surface_variant"
             android:textSize="14sp" />
 
-        <com.google.android.material.switchmaterial.SwitchMaterial
+        <Switch
             android:id="@+id/switchDarkMode"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

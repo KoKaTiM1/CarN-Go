@@ -48,7 +48,7 @@ public class RentalCompletionActivity extends BaseNavigationActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setTitle("Finish Rental");
+        setTitle(R.string.app_name);
         setScreenContent(R.layout.fragment_rental_completion, 0, false, true);
         View view = findViewById(android.R.id.content);
         booking = (Booking) getIntent().getSerializableExtra("booking");

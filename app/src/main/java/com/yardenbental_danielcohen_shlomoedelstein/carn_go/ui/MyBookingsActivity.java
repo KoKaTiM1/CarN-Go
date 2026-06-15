@@ -52,7 +52,7 @@ public class MyBookingsActivity extends BaseNavigationActivity implements Bookin
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setTitle("My Bookings");
+        setTitle(R.string.app_name);
         setScreenContent(R.layout.fragment_my_bookings, R.id.nav_my_bookings, true, true);
         View view = findViewById(android.R.id.content);
 
@@ -190,7 +190,7 @@ public class MyBookingsActivity extends BaseNavigationActivity implements Bookin
         String currentUserId = FirestoreHelper.getCurrentUserId(this);
         Context appContext = getApplicationContext();
 
-        String title = BookingStatus.APPROVED.equals(status) ? "[TEST] Alert for Renter: Approved" : "[TEST] Alert for Renter: Rejected";
+        String title = BookingStatus.APPROVED.equals(status) ? "Booking Approved" : "Booking Rejected";
         String message = "Your booking for " + booking.getCarName() + " has been " + status.toLowerCase() + " by the owner.";
 
         FirestoreHelper.getUserToken(renterId).addOnSuccessListener(documentSnapshot -> {
