@@ -1,7 +1,5 @@
 package com.yardenbental_danielcohen_shlomoedelstein.carn_go.ui;
 
-import android.app.AlarmManager;
-import android.app.PendingIntent;
 import android.app.DatePickerDialog;
 import android.app.TimePickerDialog;
 import android.content.Intent;
@@ -22,39 +20,31 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.widget.Toolbar;
 
-import okhttp3.MediaType;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.RequestBody;
-
-import com.google.firebase.firestore.FirebaseFirestore;
-import com.yardenbental_danielcohen_shlomoedelstein.carn_go.notifications.ReminderReceiver;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.notifications.ReminderScheduler;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.R;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.data.BookingRepository;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.firebase.FirestoreHelper;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Booking;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Car;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.service.AppNotificationService;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.service.BookingService;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.sync.BookingStatus;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.sync.BookingSyncScheduler;
-import android.app.NotificationManager;
 import android.content.Context;
-import androidx.core.app.NotificationCompat;
 
-import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
-import com.google.firebase.firestore.QueryDocumentSnapshot;
-
-import org.json.JSONObject;
 
 /**
  * Activity that displays a summary of the booking for a selected car.
  */
 public class BookingSummaryActivity extends BaseNavigationActivity {
 
+    private final BookingRepository bookingRepository = new BookingRepository();
+    private final BookingService bookingService = new BookingService();
+    private final AppNotificationService notificationService = new AppNotificationService();
     private long selectedStartTimestamp = 0;
     private long selectedEndTimestamp = 0;
     private double totalPrice = 0;
@@ -71,7 +61,7 @@ public class BookingSummaryActivity extends BaseNavigationActivity {
 
         Car car = (Car) getIntent().getSerializableExtra("car");
         String currentUserId = FirestoreHelper.getCurrentUserId(this);
-        if (car != null && currentUserId != null && currentUserId.equals(car.getOwnerId())) {
+        if (bookingService.isOwnerBookingOwnCar(currentUserId, car)) {
             Toast.makeText(this, "You cannot book your own car", Toast.LENGTH_SHORT).show();
             finish();
             return;
@@ -121,7 +111,7 @@ public class BookingSummaryActivity extends BaseNavigationActivity {
                 }
                 
                 // Check if within car's availability
-                if (selectedStartTimestamp < car.getAvailableFrom() || selectedEndTimestamp > car.getAvailableTo()) {
+                if (!bookingService.isWithinAvailability(car, selectedStartTimestamp, selectedEndTimestamp)) {
                     Toast.makeText(BookingSummaryActivity.this, "Booking period is outside car's availability", Toast.LENGTH_LONG).show();
                     return;
                 }
@@ -133,82 +123,25 @@ public class BookingSummaryActivity extends BaseNavigationActivity {
     }
 
     private void fetchBookingsAndSuggestSlot(Car car, TextView tvDisplay, TextView tvTotal, TextView tvTotalLabel) {
-        FirebaseFirestore db = FirebaseFirestore.getInstance();
-        // Optimized: only fetch bookings that end after 'now'
-        db.collection("bookings")
-                .whereEqualTo("carId", car.getId())
-                .whereGreaterThan("endTime", System.currentTimeMillis())
-                .orderBy("endTime")
-                .get()
-                .addOnSuccessListener(queryDocumentSnapshots -> {
-                    existingBookings.clear();
-                    for (QueryDocumentSnapshot doc : queryDocumentSnapshots) {
-                        Booking b = doc.toObject(Booking.class);
-                        // Ignore rejected bookings when calculating available slots
-                        if (BookingStatus.blocksAvailability(b.getStatus())) {
-                            existingBookings.add(b);
-                        }
-                    }
-                    
-                    // Sort bookings by start time (though Firestore might have helped if we had multiple orderBy)
-                    Collections.sort(existingBookings, (b1, b2) -> Long.compare(b1.getStartTime(), b2.getStartTime()));
-                    
-                    suggestFirstAvailableSlot(car, tvDisplay, tvTotal, tvTotalLabel);
-                })
-                .addOnFailureListener(e -> {
-                    android.util.Log.e("BookingSummary", "Error fetching bookings (check for missing index): " + e.getMessage());
-                    // Fallback to non-optimized query if index is missing (optional, but good for UX)
-                    db.collection("bookings")
-                            .whereEqualTo("carId", car.getId())
-                            .get()
-                            .addOnSuccessListener(snapshots -> {
-                                existingBookings.clear();
-                                for (QueryDocumentSnapshot doc : snapshots) {
-                                    Booking b = doc.toObject(Booking.class);
-                                    if (BookingStatus.blocksAvailability(b.getStatus())) {
-                                        existingBookings.add(b);
-                                    }
-                                }
-                                Collections.sort(existingBookings, (b1, b2) -> Long.compare(b1.getStartTime(), b2.getStartTime()));
-                                suggestFirstAvailableSlot(car, tvDisplay, tvTotal, tvTotalLabel);
-                            });
-                });
+        bookingRepository.fetchActiveBookingsForCar(car.getId(), new BookingRepository.BookingsCallback() {
+            @Override
+            public void onSuccess(List<Booking> bookings) {
+                existingBookings.clear();
+                existingBookings.addAll(bookings);
+                suggestFirstAvailableSlot(car, tvDisplay, tvTotal, tvTotalLabel);
+            }
+
+            @Override
+            public void onError(Exception error) {
+                Toast.makeText(BookingSummaryActivity.this, "Error checking availability", Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     private void suggestFirstAvailableSlot(Car car, TextView tvDisplay, TextView tvTotal, TextView tvTotalLabel) {
-        long now = System.currentTimeMillis();
-        long currentPotentialStart = Math.max(car.getAvailableFrom(), now);
-        
-        // Find the first gap of at least 1 hour
-        long suggestedStart = currentPotentialStart;
-        for (Booking b : existingBookings) {
-            if (suggestedStart + TimeUnit.HOURS.toMillis(1) <= b.getStartTime()) {
-                // Found a gap before this booking
-                break;
-            }
-            if (b.getEndTime() > suggestedStart) {
-                suggestedStart = b.getEndTime();
-            }
-        }
-        
-        // Ensure suggested start is still within overall availability
-        if (suggestedStart < car.getAvailableTo()) {
-            selectedStartTimestamp = suggestedStart;
-            // Suggest a 2-hour window or until the next booking
-            long nextBookingStart = car.getAvailableTo();
-            for (Booking b : existingBookings) {
-                if (b.getStartTime() > selectedStartTimestamp) {
-                    nextBookingStart = b.getStartTime();
-                    break;
-                }
-            }
-            selectedEndTimestamp = Math.min(nextBookingStart, selectedStartTimestamp + TimeUnit.HOURS.toMillis(2));
-        } else {
-            // No slots available
-            selectedStartTimestamp = 0;
-            selectedEndTimestamp = 0;
-        }
-        
+        BookingService.SuggestedSlot slot = bookingService.suggestFirstAvailableSlot(car, existingBookings, System.currentTimeMillis());
+        selectedStartTimestamp = slot.startTime;
+        selectedEndTimestamp = slot.endTime;
         updateBookingSummary(tvDisplay, tvTotal, tvTotalLabel, car);
     }
 
@@ -300,14 +233,9 @@ public class BookingSummaryActivity extends BaseNavigationActivity {
         String endStr = selectedEndTimestamp == 0 ? "..." : sdf.format(new Date(selectedEndTimestamp));
         tvDisplay.setText("Booking: " + startStr + " to " + endStr);
 
-        if (selectedStartTimestamp != 0 && selectedEndTimestamp != 0 && selectedEndTimestamp > selectedStartTimestamp) {
-            long diffInMillis = selectedEndTimestamp - selectedStartTimestamp;
-            long diffInHours = TimeUnit.MILLISECONDS.toHours(diffInMillis);
-            if (diffInMillis % TimeUnit.HOURS.toMillis(1) > 0) {
-                diffInHours++; // Round up to nearest hour
-            }
-            
-            totalPrice = diffInHours * car.getPricePerHour();
+        if (bookingService.isValidBookingWindow(selectedStartTimestamp, selectedEndTimestamp)) {
+            long diffInHours = bookingService.roundDurationHours(selectedStartTimestamp, selectedEndTimestamp);
+            totalPrice = bookingService.calculateTotalPrice(car, selectedStartTimestamp, selectedEndTimestamp);
             tvTotal.setText("$" + String.format("%.2f", totalPrice));
             tvTotalLabel.setText("Total (" + diffInHours + (diffInHours == 1 ? " hour)" : " hours)"));
         } else {
@@ -317,65 +245,21 @@ public class BookingSummaryActivity extends BaseNavigationActivity {
     }
 
     private void checkOverlapAndConfirm(Car car) {
-        FirebaseFirestore db = FirebaseFirestore.getInstance();
-        
-        // Optimized query: only check bookings that end after our selected start time
-        db.collection("bookings")
-                .whereEqualTo("carId", car.getId())
-                .whereGreaterThan("endTime", selectedStartTimestamp)
-                .get()
-                .addOnSuccessListener(queryDocumentSnapshots -> {
-                    boolean hasOverlap = false;
-                    for (com.google.firebase.firestore.QueryDocumentSnapshot doc : queryDocumentSnapshots) {
-                        String status = doc.getString("status");
-                        if (!BookingStatus.blocksAvailability(status)) continue;
+        bookingRepository.hasBlockingOverlap(car.getId(), selectedStartTimestamp, selectedEndTimestamp, new BookingRepository.OverlapCheckCallback() {
+            @Override
+            public void onResult(boolean hasOverlap) {
+                if (hasOverlap) {
+                    handleOverlap(car);
+                } else {
+                    confirmBooking(car);
+                }
+            }
 
-                        Long existingStart = doc.getLong("startTime");
-                        if (existingStart != null) {
-                            if (selectedEndTimestamp > existingStart) {
-                                hasOverlap = true;
-                                break;
-                            }
-                        }
-                    }
-                    
-                    if (hasOverlap) {
-                        handleOverlap(car);
-                    } else {
-                        confirmBooking(car);
-                    }
-                })
-                .addOnFailureListener(e -> {
-                    android.util.Log.e("BookingSummary", "Check overlap failed (index may be building): " + e.getMessage());
-                    // Fallback to simple query if index is missing
-                    db.collection("bookings")
-                            .whereEqualTo("carId", car.getId())
-                            .get()
-                            .addOnSuccessListener(snapshots -> {
-                                boolean hasOverlap = false;
-                                for (com.google.firebase.firestore.QueryDocumentSnapshot doc : snapshots) {
-                                    String status = doc.getString("status");
-                                    if (!BookingStatus.blocksAvailability(status)) continue;
-
-                                    Long existingStart = doc.getLong("startTime");
-                                    Long existingEnd = doc.getLong("endTime");
-                                    if (existingStart != null && existingEnd != null) {
-                                        if (selectedStartTimestamp < existingEnd && selectedEndTimestamp > existingStart) {
-                                            hasOverlap = true;
-                                            break;
-                                        }
-                                    }
-                                }
-                                if (hasOverlap) {
-                                    handleOverlap(car);
-                                } else {
-                                    confirmBooking(car);
-                                }
-                            })
-                            .addOnFailureListener(e2 -> {
-                                Toast.makeText(BookingSummaryActivity.this, "Error checking availability: " + e2.getMessage(), Toast.LENGTH_SHORT).show();
-                            });
-                });
+            @Override
+            public void onError(Exception error) {
+                Toast.makeText(BookingSummaryActivity.this, "Error checking availability: " + error.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     private void handleOverlap(Car car) {
@@ -388,12 +272,10 @@ public class BookingSummaryActivity extends BaseNavigationActivity {
     private void confirmBooking(Car car) {
         String userId = FirestoreHelper.getCurrentUserId(BookingSummaryActivity.this);
         if (userId == null) return;
-        if (userId.equals(car.getOwnerId())) {
+        if (bookingService.isOwnerBookingOwnCar(userId, car)) {
             Toast.makeText(BookingSummaryActivity.this, "You cannot book your own car", Toast.LENGTH_SHORT).show();
             return;
         }
-
-        FirebaseFirestore db = FirebaseFirestore.getInstance();
         
         Map<String, Object> bookingData = new HashMap<>();
         bookingData.put("carId", car.getId());
@@ -407,7 +289,7 @@ public class BookingSummaryActivity extends BaseNavigationActivity {
         bookingData.put("timestamp", System.currentTimeMillis());
         bookingData.put("status", BookingStatus.PENDING);
 
-        db.collection("bookings").add(bookingData)
+        bookingRepository.createBooking(bookingData)
                 .addOnSuccessListener(documentReference -> {
                     Toast.makeText(BookingSummaryActivity.this, "Booking Confirmed!", Toast.LENGTH_SHORT).show();
 
@@ -427,7 +309,7 @@ public class BookingSummaryActivity extends BaseNavigationActivity {
                     ReminderScheduler.cancelRentalReminders(BookingSummaryActivity.this, createdBooking.getId());
 
                     // 2. Trigger local notification for the Renter (Added to bookings)
-                    showLocalNotification(getApplicationContext(), "Booking Submitted", 
+                    notificationService.showLocalNotification(getApplicationContext(), "Booking Submitted",
                             "Your request for " + car.getName() + " has been added to 'My Bookings'. Wait for owner approval!");
 
                     // 3. Trigger notification to the owner
@@ -457,13 +339,10 @@ public class BookingSummaryActivity extends BaseNavigationActivity {
             if (documentSnapshot.exists()) {
                 String token = documentSnapshot.getString("token");
                 if (token != null) {
-                    android.util.Log.d("BookingSummaryActivity", "Owner FCM Token found: " + token);
-
-                    // Simulation logic: Only show the "Owner Alert" if the current user IS the owner
                     if (currentUserId != null && currentUserId.equals(ownerId)) {
-                        showLocalNotification(appContext, "New Booking Request", "Your car " + car.getName() + " has a new booking request!");
+                        notificationService.showLocalNotification(appContext, "New Booking Request", "Your car " + car.getName() + " has a new booking request!");
                     } else {
-                        sendFCMNotification(appContext, token, "New Booking Request", "Your car " + car.getName() + " has a new booking request!");
+                        notificationService.sendRemoteNotification(appContext, token, "New Booking Request", "Your car " + car.getName() + " has a new booking request!");
                     }
                 }
             } else {
@@ -472,86 +351,5 @@ public class BookingSummaryActivity extends BaseNavigationActivity {
         }).addOnFailureListener(e -> {
             android.util.Log.e("BookingSummaryActivity", "Failed to fetch owner token", e);
         });
-    }
-
-    private void sendFCMNotification(Context context, String targetToken, String title, String body) {
-        new Thread(() -> {
-            try {
-                // 1. Get Access Token using the Service Account JSON
-                InputStream inputStream = context.getResources().openRawResource(R.raw.service_account);
-                com.google.auth.oauth2.GoogleCredentials credentials = 
-                    com.google.auth.oauth2.GoogleCredentials.fromStream(inputStream)
-                        .createScoped(Collections.singletonList("https://www.googleapis.com/auth/cloud-platform"));
-                credentials.refreshIfExpired();
-                String accessToken = credentials.getAccessToken().getTokenValue();
-
-                // 2. Build the V1 JSON Structure
-                JSONObject message = new JSONObject();
-                JSONObject notification = new JSONObject();
-                notification.put("title", title);
-                notification.put("body", body);
-                
-                message.put("token", targetToken);
-                message.put("notification", notification);
-
-                JSONObject root = new JSONObject();
-                root.put("message", message);
-
-                // 3. Send the Request
-                OkHttpClient client = new OkHttpClient();
-                RequestBody requestBody = RequestBody.create(
-                        root.toString(),
-                        MediaType.parse("application/json; charset=utf-8")
-                );
-
-                // Replace 'carn-go' with your actual Project ID if different
-                String url = "https://fcm.googleapis.com/v1/projects/carn-go/messages:send";
-
-                Request request = new Request.Builder()
-                        .url(url)
-                        .post(requestBody)
-                        .addHeader("Authorization", "Bearer " + accessToken)
-                        .build();
-
-                try (okhttp3.Response response = client.newCall(request).execute()) {
-                    if (response.isSuccessful()) {
-                        android.util.Log.d("FCM_DIAGNOSTIC", "V1 Success! Response: " + response.body().string());
-                    } else {
-                        android.util.Log.e("FCM_DIAGNOSTIC", "V1 Failed! Code: " + response.code() + " Body: " + response.body().string());
-                    }
-                }
-            } catch (Exception e) {
-                android.util.Log.e("FCM_DIAGNOSTIC", "V1 Error: " + e.getMessage(), e);
-            }
-        }).start();
-    }
-
-    private void showLocalNotification(Context context, String title, String body) {
-        if (context == null) {
-            android.util.Log.e("BookingSummaryActivity", "Cannot show notification: context is null");
-            return;
-        }
-
-        android.util.Log.d("BookingSummaryActivity", "Attempting to show notification: " + title);
-
-        NotificationManager notificationManager = (NotificationManager)
-                context.getSystemService(Context.NOTIFICATION_SERVICE);
-
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(context, com.yardenbental_danielcohen_shlomoedelstein.carn_go.App.CHANNEL_ID)
-                .setSmallIcon(R.mipmap.ic_launcher)
-                .setContentTitle(title)
-                .setContentText(body)
-                .setPriority(NotificationCompat.PRIORITY_MAX)   // Max priority for heads-up
-                .setCategory(NotificationCompat.CATEGORY_MESSAGE)
-                .setDefaults(NotificationCompat.DEFAULT_ALL)   // Sound, Vibration, Lights
-                .setAutoCancel(true);
-
-        if (notificationManager != null) {
-            int notificationId = (int) System.currentTimeMillis();
-            notificationManager.notify(notificationId, builder.build());
-            android.util.Log.d("BookingSummaryActivity", "Notification ID " + notificationId + " sent to system");
-        } else {
-            android.util.Log.e("BookingSummaryActivity", "NotificationManager is null");
-        }
     }
 }

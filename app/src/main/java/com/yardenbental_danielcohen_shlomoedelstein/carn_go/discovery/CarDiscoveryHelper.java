@@ -6,9 +6,7 @@ import android.location.Location;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.QueryDocumentSnapshot;
-import com.yardenbental_danielcohen_shlomoedelstein.carn_go.R;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.data.CarRepository;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Car;
 
 import java.util.ArrayList;
@@ -40,63 +38,17 @@ public final class CarDiscoveryHelper {
                                          long currentTime,
                                          @Nullable String excludedOwnerId,
                                          @NonNull CarsResultCallback callback) {
-        FirebaseFirestore.getInstance().collection("cars")
-                .get()
-                .addOnSuccessListener(queryDocumentSnapshots -> {
-                    List<Car> cars = new ArrayList<>();
-                    for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
-                        try {
-                            Long availableTo = document.getLong("availableTo");
-                            if (availableTo != null && availableTo < currentTime) {
-                                continue;
-                            }
+        new CarRepository().fetchAllAvailableCars(context, currentTime, excludedOwnerId, new CarRepository.CarsCallback() {
+            @Override
+            public void onSuccess(List<Car> cars) {
+                callback.onSuccess(cars);
+            }
 
-                            String name = document.getString("name");
-                            String description = document.getString("description");
-                            String type = document.getString("type");
-                            String location = document.getString("location");
-                            Double latitude = document.getDouble("latitude");
-                            Double longitude = document.getDouble("longitude");
-                            Double price = document.getDouble("pricePerHour");
-                            Double rating = document.getDouble("rating");
-                            String imageUrl = document.getString("imageUrl");
-                            String transmission = document.getString("transmission");
-                            Long seatsLong = document.getLong("seats");
-                            int seats = seatsLong != null ? seatsLong.intValue() : 5;
-                            String fuelType = document.getString("fuelType");
-                            String tag = document.getString("tag");
-                            String ownerId = document.getString("ownerId");
-                            Long availableFrom = document.getLong("availableFrom");
-
-                            if (excludedOwnerId != null && excludedOwnerId.equals(ownerId)) {
-                                continue;
-                            }
-
-                            cars.add(new Car(
-                                    document.getId(),
-                                    name != null ? name : context.getString(R.string.unknown),
-                                    description,
-                                    type != null ? type : context.getString(R.string.standard),
-                                    location != null ? location : context.getString(R.string.location_unavailable_label),
-                                    latitude,
-                                    longitude,
-                                    price != null ? price : 0.0,
-                                    rating != null ? rating : 5.0,
-                                    imageUrl,
-                                    transmission != null ? transmission : context.getString(R.string.auto),
-                                    seats,
-                                    fuelType != null ? fuelType : context.getString(R.string.gas),
-                                    tag != null ? tag : "",
-                                    ownerId != null ? ownerId : "",
-                                    availableFrom != null ? availableFrom : 0L,
-                                    availableTo != null ? availableTo : 0L
-                            ));
-                        } catch (Exception ignored) {
-                        }
-                    }
-                    callback.onSuccess(cars);
-                })
-                .addOnFailureListener(callback::onError);
+            @Override
+            public void onError(Exception error) {
+                callback.onError(error);
+            }
+        });
     }
 
     public static List<Car> filterAndSortCars(@NonNull List<Car> source,

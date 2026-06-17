@@ -15,9 +15,8 @@ import androidx.core.content.ContextCompat;
 import androidx.appcompat.widget.Toolbar;
 
 import com.bumptech.glide.Glide;
-import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.R;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.data.CarRepository;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.firebase.FirestoreHelper;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Booking;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Car;
@@ -30,6 +29,8 @@ import java.util.List;
  * Activity that displays detailed information about a specific car.
  */
 public class CarDetailsActivity extends BaseNavigationActivity {
+
+    private final CarRepository carRepository = new CarRepository();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -146,41 +147,34 @@ public class CarDetailsActivity extends BaseNavigationActivity {
     }
 
     private void fetchAndShowBusySlots(String carId, TextView label, TextView content) {
-        FirebaseFirestore db = FirebaseFirestore.getInstance();
-        db.collection("bookings")
-                .whereEqualTo("carId", carId)
-                .whereGreaterThan("endTime", System.currentTimeMillis())
-                .get()
-                .addOnSuccessListener(queryDocumentSnapshots -> {
-                    List<Booking> bookings = new ArrayList<>();
-                    for (QueryDocumentSnapshot doc : queryDocumentSnapshots) {
-                        Booking b = doc.toObject(Booking.class);
-                        // Ignore rejected bookings in the "Busy Slots" list
-                        if (!"REJECTED".equals(b.getStatus())) {
-                            bookings.add(b);
-                        }
-                    }
+        carRepository.fetchFutureBookingsForCar(carId, new CarRepository.BookingsCallback() {
+            @Override
+            public void onSuccess(List<Booking> bookings) {
+                if (bookings.isEmpty()) {
+                    label.setVisibility(View.GONE);
+                    content.setVisibility(View.GONE);
+                    return;
+                }
 
-                    if (bookings.isEmpty()) {
-                        label.setVisibility(View.GONE);
-                        content.setVisibility(View.GONE);
-                        return;
-                    }
+                StringBuilder sb = new StringBuilder();
+                SimpleDateFormat sdf = new SimpleDateFormat("MMM d, HH:mm", Locale.getDefault());
+                for (Booking booking : bookings) {
+                    if (sb.length() > 0) sb.append("\n");
+                    sb.append(sdf.format(new Date(booking.getStartTime())))
+                            .append(" - ")
+                            .append(sdf.format(new Date(booking.getEndTime())));
+                }
 
-                    Collections.sort(bookings, (b1, b2) -> Long.compare(b1.getStartTime(), b2.getStartTime()));
+                label.setVisibility(View.VISIBLE);
+                content.setVisibility(View.VISIBLE);
+                content.setText(sb.toString());
+            }
 
-                    StringBuilder sb = new StringBuilder();
-                    SimpleDateFormat sdf = new SimpleDateFormat("MMM d, HH:mm", Locale.getDefault());
-                    for (Booking b : bookings) {
-                        if (sb.length() > 0) sb.append("\n");
-                        sb.append(sdf.format(new Date(b.getStartTime())))
-                          .append(" - ")
-                          .append(sdf.format(new Date(b.getEndTime())));
-                    }
-
-                    label.setVisibility(View.VISIBLE);
-                    content.setVisibility(View.VISIBLE);
-                    content.setText(sb.toString());
-                });
+            @Override
+            public void onError(Exception error) {
+                label.setVisibility(View.GONE);
+                content.setVisibility(View.GONE);
+            }
+        });
     }
 }
