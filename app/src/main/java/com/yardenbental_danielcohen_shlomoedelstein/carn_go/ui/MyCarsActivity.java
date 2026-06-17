@@ -34,6 +34,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.core.content.ContextCompat;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
@@ -84,6 +85,7 @@ public class MyCarsActivity extends BaseNavigationActivity {
     private ActivityResultLauncher<String[]> locationPermissionLauncher;
     private FusedLocationProviderClient fusedLocationClient;
     private Runnable pendingLocationAction;
+    private SwipeRefreshLayout swipeRefresh;
     private ListView rvMyCars;
     private CarAdapter adapter;
     private final List<Car> myCarsList = new ArrayList<>();
@@ -141,9 +143,15 @@ public class MyCarsActivity extends BaseNavigationActivity {
                 }
         );
 
+        swipeRefresh = view.findViewById(R.id.swipeRefreshMyCars);
         rvMyCars = view.findViewById(R.id.rvMyCars);
         layoutEmpty = view.findViewById(R.id.layoutEmpty);
         addCarBtn = view.findViewById(R.id.btnAddCar);
+
+        if (swipeRefresh != null) {
+            swipeRefresh.setOnRefreshListener(() -> fetchMyCars());
+            swipeRefresh.setOnChildScrollUpCallback((parent, child) -> rvMyCars != null && rvMyCars.canScrollVertically(-1));
+        }
 
         adapter = new CarAdapter(myCarsList, new CarAdapter.OnCarClickListener() {
             @Override
@@ -185,14 +193,27 @@ public class MyCarsActivity extends BaseNavigationActivity {
         fetchMyCars();
     }
 
+    @Override
+    public void onResume() {
+        super.onResume();
+        fetchMyCars();
+    }
+
     private void fetchMyCars() {
-        if (!NetworkUtils.checkAndToast(this)) return;
+        if (!NetworkUtils.checkAndToast(this)) {
+            if (swipeRefresh != null) swipeRefresh.setRefreshing(false);
+            return;
+        }
         String currentUserId = FirestoreHelper.getCurrentUserId(MyCarsActivity.this);
-        if (currentUserId == null) return;
+        if (currentUserId == null) {
+            if (swipeRefresh != null) swipeRefresh.setRefreshing(false);
+            return;
+        }
 
         carRepository.fetchCarsOwnedBy(this, currentUserId, new CarRepository.CarsCallback() {
             @Override
             public void onSuccess(List<Car> cars) {
+                if (swipeRefresh != null) swipeRefresh.setRefreshing(false);
                 myCarsList.clear();
                 myCarsList.addAll(cars);
                 if (myCarsList.isEmpty()) {
@@ -207,6 +228,7 @@ public class MyCarsActivity extends BaseNavigationActivity {
 
             @Override
             public void onError(Exception error) {
+                if (swipeRefresh != null) swipeRefresh.setRefreshing(false);
                 Toast.makeText(MyCarsActivity.this, R.string.failed_load_cars, Toast.LENGTH_SHORT).show();
             }
         });

@@ -13,6 +13,7 @@ import android.widget.Toast;
 
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.R;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.adapter.BookingAdapter;
@@ -32,6 +33,7 @@ public class MyBookingsActivity extends BaseNavigationActivity implements Bookin
 
     private final BookingRepository bookingRepository = new BookingRepository();
     private final AppNotificationService notificationService = new AppNotificationService();
+    private SwipeRefreshLayout swipeRefresh;
     private ListView rvBookings;
     private BookingAdapter adapter;
     private List<Booking> bookingList;
@@ -51,6 +53,7 @@ public class MyBookingsActivity extends BaseNavigationActivity implements Bookin
         setScreenContent(R.layout.fragment_my_bookings, R.id.nav_my_bookings, true, true);
         View view = findViewById(android.R.id.content);
 
+        swipeRefresh = view.findViewById(R.id.swipeRefreshMyBookings);
         rvBookings = view.findViewById(R.id.rvMyBookings);
         layoutNoBookings = view.findViewById(R.id.layoutNoBookings);
 
@@ -58,6 +61,11 @@ public class MyBookingsActivity extends BaseNavigationActivity implements Bookin
         bookingList = new ArrayList<>();
         adapter = new BookingAdapter(bookingList, userId, this);
         rvBookings.setAdapter(adapter);
+
+        if (swipeRefresh != null) {
+            swipeRefresh.setOnRefreshListener(() -> loadBookings());
+            swipeRefresh.setOnChildScrollUpCallback((parent, child) -> rvBookings != null && rvBookings.canScrollVertically(-1));
+        }
 
         loadBookings();
     }
@@ -84,13 +92,20 @@ public class MyBookingsActivity extends BaseNavigationActivity implements Bookin
     }
 
     private void loadBookings() {
-        if (!NetworkUtils.checkAndToast(this)) return;
+        if (!NetworkUtils.checkAndToast(this)) {
+            if (swipeRefresh != null) swipeRefresh.setRefreshing(false);
+            return;
+        }
         String userId = FirestoreHelper.getCurrentUserId(this);
-        if (userId == null) return;
+        if (userId == null) {
+            if (swipeRefresh != null) swipeRefresh.setRefreshing(false);
+            return;
+        }
 
         bookingRepository.fetchBookingsForUserAndOwner(userId, new BookingRepository.BookingsCallback() {
             @Override
             public void onSuccess(List<Booking> bookings) {
+                if (swipeRefresh != null) swipeRefresh.setRefreshing(false);
                 bookingList.clear();
                 bookingList.addAll(bookings);
                 updateUI();
@@ -98,6 +113,7 @@ public class MyBookingsActivity extends BaseNavigationActivity implements Bookin
 
             @Override
             public void onError(Exception error) {
+                if (swipeRefresh != null) swipeRefresh.setRefreshing(false);
                 Toast.makeText(MyBookingsActivity.this, "Error loading bookings", Toast.LENGTH_SHORT).show();
             }
         });
