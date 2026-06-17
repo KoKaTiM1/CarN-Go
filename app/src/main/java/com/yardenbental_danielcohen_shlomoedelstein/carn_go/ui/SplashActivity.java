@@ -251,7 +251,8 @@ public class SplashActivity extends BaseNavigationActivity {
     }
 
     private void loadNearbyCars(@NonNull Location location) {
-        CarDiscoveryHelper.loadAvailableCars(SplashActivity.this, System.currentTimeMillis(), new CarDiscoveryHelper.CarsResultCallback() {
+        String currentUserId = FirestoreHelper.getCurrentUserId(SplashActivity.this);
+        CarDiscoveryHelper.loadAvailableCars(SplashActivity.this, System.currentTimeMillis(), currentUserId, new CarDiscoveryHelper.CarsResultCallback() {
             @Override
             public void onSuccess(List<Car> cars) {
                 if (!!isFinishing()) {

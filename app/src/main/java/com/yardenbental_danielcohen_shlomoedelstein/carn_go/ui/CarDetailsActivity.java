@@ -18,6 +18,7 @@ import com.bumptech.glide.Glide;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.R;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.firebase.FirestoreHelper;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Booking;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Car;
 
@@ -122,11 +123,20 @@ public class CarDetailsActivity extends BaseNavigationActivity {
         }
 
         // Navigate to booking summary when "Book Now" is clicked
-        view.findViewById(R.id.btnBookNow).setOnClickListener(v -> {
-            Intent intent = new Intent(this, BookingSummaryActivity.class);
-            intent.putExtra("car", car);
-            startActivity(intent);
-        });
+        View bookNowButton = view.findViewById(R.id.btnBookNow);
+        String currentUserId = FirestoreHelper.getCurrentUserId(this);
+        boolean isOwnCar = car != null
+                && currentUserId != null
+                && currentUserId.equals(car.getOwnerId());
+        if (isOwnCar) {
+            bookNowButton.setVisibility(View.GONE);
+        } else {
+            bookNowButton.setOnClickListener(v -> {
+                Intent intent = new Intent(this, BookingSummaryActivity.class);
+                intent.putExtra("car", car);
+                startActivity(intent);
+            });
+        }
 
         // Handle back navigation from the toolbar navigation icon
         Toolbar toolbar = view.findViewById(R.id.toolbar);

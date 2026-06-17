@@ -37,6 +37,7 @@ import com.yardenbental_danielcohen_shlomoedelstein.carn_go.AppPreferences;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.R;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.adapter.CarAdapter;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.discovery.CarDiscoveryHelper;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.firebase.FirestoreHelper;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Car;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.sync.BookingSyncScheduler;
 
@@ -282,7 +283,8 @@ public class BrowseCarsActivity extends BaseNavigationActivity {
     }
 
     private void loadCarsFromFirestore() {
-        CarDiscoveryHelper.loadAvailableCars(this, System.currentTimeMillis(), new CarDiscoveryHelper.CarsResultCallback() {
+        String currentUserId = FirestoreHelper.getCurrentUserId(this);
+        CarDiscoveryHelper.loadAvailableCars(this, System.currentTimeMillis(), currentUserId, new CarDiscoveryHelper.CarsResultCallback() {
             @Override
             public void onSuccess(List<Car> loadedCars) {
                 allCars.clear();

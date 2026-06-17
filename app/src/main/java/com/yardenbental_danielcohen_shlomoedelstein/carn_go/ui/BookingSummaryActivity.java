@@ -70,6 +70,12 @@ public class BookingSummaryActivity extends BaseNavigationActivity {
         contentView = view;
 
         Car car = (Car) getIntent().getSerializableExtra("car");
+        String currentUserId = FirestoreHelper.getCurrentUserId(this);
+        if (car != null && currentUserId != null && currentUserId.equals(car.getOwnerId())) {
+            Toast.makeText(this, "You cannot book your own car", Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
         if (car != null) {
             TextView tvName = view.findViewById(R.id.tvSummaryCarName);
             TextView tvPrice = view.findViewById(R.id.tvSummaryPrice);
@@ -382,6 +388,10 @@ public class BookingSummaryActivity extends BaseNavigationActivity {
     private void confirmBooking(Car car) {
         String userId = FirestoreHelper.getCurrentUserId(BookingSummaryActivity.this);
         if (userId == null) return;
+        if (userId.equals(car.getOwnerId())) {
+            Toast.makeText(BookingSummaryActivity.this, "You cannot book your own car", Toast.LENGTH_SHORT).show();
+            return;
+        }
 
         FirebaseFirestore db = FirebaseFirestore.getInstance();
         

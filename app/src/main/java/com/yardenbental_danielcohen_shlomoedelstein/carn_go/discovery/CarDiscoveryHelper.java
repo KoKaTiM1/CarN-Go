@@ -33,6 +33,13 @@ public final class CarDiscoveryHelper {
     }
 
     public static void loadAvailableCars(@NonNull Context context, long currentTime, @NonNull CarsResultCallback callback) {
+        loadAvailableCars(context, currentTime, null, callback);
+    }
+
+    public static void loadAvailableCars(@NonNull Context context,
+                                         long currentTime,
+                                         @Nullable String excludedOwnerId,
+                                         @NonNull CarsResultCallback callback) {
         FirebaseFirestore.getInstance().collection("cars")
                 .get()
                 .addOnSuccessListener(queryDocumentSnapshots -> {
@@ -60,6 +67,10 @@ public final class CarDiscoveryHelper {
                             String tag = document.getString("tag");
                             String ownerId = document.getString("ownerId");
                             Long availableFrom = document.getLong("availableFrom");
+
+                            if (excludedOwnerId != null && excludedOwnerId.equals(ownerId)) {
+                                continue;
+                            }
 
                             cars.add(new Car(
                                     document.getId(),
