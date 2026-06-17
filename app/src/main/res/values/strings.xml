@@ -122,5 +122,6 @@
     <string name="splash_results_empty_title">Nothing nearby in range</string>
 
     <string name="no_internet">No internet connection. Please check your network and try again.</string>
+    <string name="error_window_conflicts_booking">Cannot shrink the availability window — an existing booking falls outside the new dates. Cancel that booking first or choose a wider window.</string>
 
 </resources>

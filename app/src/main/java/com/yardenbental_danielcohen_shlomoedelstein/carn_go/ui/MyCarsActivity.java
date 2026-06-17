@@ -41,6 +41,7 @@ import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.Priority;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.R;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.adapter.CarAdapter;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.data.BookingRepository;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.data.CarRepository;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.firebase.FirestoreHelper;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Car;
@@ -79,6 +80,7 @@ public class MyCarsActivity extends BaseNavigationActivity {
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final CarRepository carRepository = new CarRepository();
+    private final BookingRepository bookingRepository = new BookingRepository();
 
     private ActivityResultLauncher<String> pickImageLauncher;
     private ActivityResultLauncher<Intent> cameraLauncher;
@@ -294,6 +296,27 @@ public class MyCarsActivity extends BaseNavigationActivity {
 
     private void updateCarData(String carId, String name, String description, double price, String location, Double latitude, Double longitude, String type, String transmission, int seats, String fuelType, long start, long end) {
         if (!NetworkUtils.checkAndToast(this)) return;
+
+        bookingRepository.fetchActiveBookingsForCar(carId, new BookingRepository.BookingsCallback() {
+            @Override
+            public void onSuccess(List<com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Booking> bookings) {
+                for (com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Booking booking : bookings) {
+                    if (booking.getStartTime() < start || booking.getEndTime() > end) {
+                        Toast.makeText(MyCarsActivity.this, R.string.error_window_conflicts_booking, Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                }
+                saveCarUpdate(carId, name, description, price, location, latitude, longitude, type, transmission, seats, fuelType, start, end);
+            }
+
+            @Override
+            public void onError(Exception error) {
+                Toast.makeText(MyCarsActivity.this, getString(R.string.error_updating, error.getMessage()), Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void saveCarUpdate(String carId, String name, String description, double price, String location, Double latitude, Double longitude, String type, String transmission, int seats, String fuelType, long start, long end) {
         Map<String, Object> updates = new HashMap<>();
         updates.put("name", name);
         updates.put("description", description);
