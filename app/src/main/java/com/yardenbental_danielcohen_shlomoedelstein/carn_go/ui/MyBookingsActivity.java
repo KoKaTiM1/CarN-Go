@@ -22,6 +22,7 @@ import com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Booking;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.service.AppNotificationService;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.sync.BookingStatus;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.sync.BookingSyncScheduler;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.util.NetworkUtils;
 
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -83,6 +84,7 @@ public class MyBookingsActivity extends BaseNavigationActivity implements Bookin
     }
 
     private void loadBookings() {
+        if (!NetworkUtils.checkAndToast(this)) return;
         String userId = FirestoreHelper.getCurrentUserId(this);
         if (userId == null) return;
 
@@ -144,6 +146,7 @@ public class MyBookingsActivity extends BaseNavigationActivity implements Bookin
     }
 
     private void updateBookingStatus(Booking booking, String newStatus) {
+        if (!NetworkUtils.checkAndToast(this)) return;
         bookingRepository.updateStatus(booking.getId(), newStatus)
                 .addOnSuccessListener(aVoid -> {
                     Toast.makeText(this, "Booking " + newStatus, Toast.LENGTH_SHORT).show();

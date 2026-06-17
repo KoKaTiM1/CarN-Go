@@ -17,6 +17,7 @@ import androidx.appcompat.widget.Toolbar;
 import com.bumptech.glide.Glide;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.R;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.data.CarRepository;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.util.NetworkUtils;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.firebase.FirestoreHelper;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Booking;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Car;
@@ -147,6 +148,11 @@ public class CarDetailsActivity extends BaseNavigationActivity {
     }
 
     private void fetchAndShowBusySlots(String carId, TextView label, TextView content) {
+        if (!NetworkUtils.isConnected(this)) {
+            label.setVisibility(View.GONE);
+            content.setVisibility(View.GONE);
+            return;
+        }
         carRepository.fetchFutureBookingsForCar(carId, new CarRepository.BookingsCallback() {
             @Override
             public void onSuccess(List<Booking> bookings) {

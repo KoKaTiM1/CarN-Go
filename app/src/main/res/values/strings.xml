@@ -121,4 +121,6 @@
     <string name="splash_results_subtitle">These are the strongest matches based on your current location and search radius.</string>
     <string name="splash_results_empty_title">Nothing nearby in range</string>
 
+    <string name="no_internet">No internet connection. Please check your network and try again.</string>
+
 </resources>

@@ -30,6 +30,7 @@ import com.yardenbental_danielcohen_shlomoedelstein.carn_go.service.AppNotificat
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.service.BookingService;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.sync.BookingStatus;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.sync.BookingSyncScheduler;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.util.NetworkUtils;
 import android.content.Context;
 
 import java.util.ArrayList;
@@ -123,6 +124,7 @@ public class BookingSummaryActivity extends BaseNavigationActivity {
     }
 
     private void fetchBookingsAndSuggestSlot(Car car, TextView tvDisplay, TextView tvTotal, TextView tvTotalLabel) {
+        if (!NetworkUtils.checkAndToast(this)) return;
         bookingRepository.fetchActiveBookingsForCar(car.getId(), new BookingRepository.BookingsCallback() {
             @Override
             public void onSuccess(List<Booking> bookings) {
@@ -245,6 +247,7 @@ public class BookingSummaryActivity extends BaseNavigationActivity {
     }
 
     private void checkOverlapAndConfirm(Car car) {
+        if (!NetworkUtils.checkAndToast(this)) return;
         bookingRepository.hasBlockingOverlap(car.getId(), selectedStartTimestamp, selectedEndTimestamp, new BookingRepository.OverlapCheckCallback() {
             @Override
             public void onResult(boolean hasOverlap) {

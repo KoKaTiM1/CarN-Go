@@ -44,6 +44,7 @@ import com.yardenbental_danielcohen_shlomoedelstein.carn_go.data.CarRepository;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.firebase.FirestoreHelper;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Car;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.util.ImageCodec;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.util.NetworkUtils;
 
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
@@ -185,6 +186,7 @@ public class MyCarsActivity extends BaseNavigationActivity {
     }
 
     private void fetchMyCars() {
+        if (!NetworkUtils.checkAndToast(this)) return;
         String currentUserId = FirestoreHelper.getCurrentUserId(MyCarsActivity.this);
         if (currentUserId == null) return;
 
@@ -269,6 +271,7 @@ public class MyCarsActivity extends BaseNavigationActivity {
     }
 
     private void updateCarData(String carId, String name, String description, double price, String location, Double latitude, Double longitude, String type, String transmission, int seats, String fuelType, long start, long end) {
+        if (!NetworkUtils.checkAndToast(this)) return;
         Map<String, Object> updates = new HashMap<>();
         updates.put("name", name);
         updates.put("description", description);
@@ -295,12 +298,15 @@ public class MyCarsActivity extends BaseNavigationActivity {
         new AlertDialog.Builder(MyCarsActivity.this)
                 .setTitle(R.string.delete_car)
                 .setMessage(R.string.delete_confirmation)
-                .setPositiveButton(R.string.delete, (dialog, which) -> carRepository.deleteCar(car.getId())
+                .setPositiveButton(R.string.delete, (dialog, which) -> {
+                    if (!NetworkUtils.checkAndToast(MyCarsActivity.this)) return;
+                    carRepository.deleteCar(car.getId())
                         .addOnSuccessListener(aVoid -> {
                             Toast.makeText(MyCarsActivity.this, R.string.car_deleted, Toast.LENGTH_SHORT).show();
                             fetchMyCars();
                         })
-                        .addOnFailureListener(e -> Toast.makeText(MyCarsActivity.this, getString(R.string.error_deleting, e.getMessage()), Toast.LENGTH_SHORT).show()))
+                        .addOnFailureListener(e -> Toast.makeText(MyCarsActivity.this, getString(R.string.error_deleting, e.getMessage()), Toast.LENGTH_SHORT).show());
+                })
                 .setNegativeButton(R.string.cancel, null)
                 .show();
     }
@@ -608,6 +614,7 @@ public class MyCarsActivity extends BaseNavigationActivity {
     }
 
     private void uploadCarData(String carName, String description, double price, String location, Double latitude, Double longitude, String type, String transmission, int seats, String fuelType, Object imageSource, long start, long end) {
+        if (!NetworkUtils.checkAndToast(this)) return;
         Toast.makeText(MyCarsActivity.this, R.string.processing_listing, Toast.LENGTH_SHORT).show();
 
         executorService.execute(() -> {

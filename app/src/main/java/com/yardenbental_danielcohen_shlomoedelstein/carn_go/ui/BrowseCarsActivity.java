@@ -40,6 +40,7 @@ import com.yardenbental_danielcohen_shlomoedelstein.carn_go.discovery.CarDiscove
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.firebase.FirestoreHelper;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Car;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.sync.BookingSyncScheduler;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.util.NetworkUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -283,6 +284,10 @@ public class BrowseCarsActivity extends BaseNavigationActivity {
     }
 
     private void loadCarsFromFirestore() {
+        if (!NetworkUtils.checkAndToast(this)) {
+            finishLoading();
+            return;
+        }
         String currentUserId = FirestoreHelper.getCurrentUserId(this);
         CarDiscoveryHelper.loadAvailableCars(this, System.currentTimeMillis(), currentUserId, new CarDiscoveryHelper.CarsResultCallback() {
             @Override

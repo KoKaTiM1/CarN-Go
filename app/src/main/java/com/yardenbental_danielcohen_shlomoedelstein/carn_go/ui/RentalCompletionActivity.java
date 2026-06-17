@@ -18,6 +18,7 @@ import com.yardenbental_danielcohen_shlomoedelstein.carn_go.data.BookingReposito
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Booking;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.sync.BookingSyncScheduler;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.util.ImageCodec;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.util.NetworkUtils;
 
 public class RentalCompletionActivity extends BaseNavigationActivity {
 
@@ -69,6 +70,7 @@ public class RentalCompletionActivity extends BaseNavigationActivity {
 
     private void completeRental() {
         if (base64Image == null || booking == null) return;
+        if (!NetworkUtils.checkAndToast(this)) return;
 
         btnSubmit.setEnabled(false);
         bookingRepository.completeBooking(booking.getId(), base64Image)
