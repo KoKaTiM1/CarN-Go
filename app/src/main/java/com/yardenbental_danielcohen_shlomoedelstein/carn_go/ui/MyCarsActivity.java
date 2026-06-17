@@ -729,6 +729,7 @@ public class MyCarsActivity extends BaseNavigationActivity {
                 || ContextCompat.checkSelfPermission(MyCarsActivity.this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
     }
 
+    @android.annotation.SuppressLint("MissingPermission")
     private void requestCurrentLocation(LocationCallback callback) {
         if (!hasLocationPermission()) {
             return;
