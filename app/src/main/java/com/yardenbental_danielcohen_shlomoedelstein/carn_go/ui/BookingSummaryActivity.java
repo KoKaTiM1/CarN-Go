@@ -51,6 +51,8 @@ public class BookingSummaryActivity extends BaseNavigationActivity {
     private double totalPrice = 0;
     private List<Booking> existingBookings = new ArrayList<>();
     private View contentView;
+    private View btnConfirm;
+    private boolean isSubmitting = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -101,7 +103,9 @@ public class BookingSummaryActivity extends BaseNavigationActivity {
             }
 
             // Handle the confirm booking button click
-            view.findViewById(R.id.btnConfirmBooking).setOnClickListener(v -> {
+            btnConfirm = view.findViewById(R.id.btnConfirmBooking);
+            btnConfirm.setOnClickListener(v -> {
+                if (isSubmitting) return;
                 if (selectedStartTimestamp == 0 || selectedEndTimestamp == 0) {
                     Toast.makeText(BookingSummaryActivity.this, "Please select a booking period", Toast.LENGTH_SHORT).show();
                     return;
@@ -110,13 +114,14 @@ public class BookingSummaryActivity extends BaseNavigationActivity {
                     Toast.makeText(BookingSummaryActivity.this, "End time must be after start time", Toast.LENGTH_SHORT).show();
                     return;
                 }
-                
+
                 // Check if within car's availability
                 if (!bookingService.isWithinAvailability(car, selectedStartTimestamp, selectedEndTimestamp)) {
                     Toast.makeText(BookingSummaryActivity.this, "Booking period is outside car's availability", Toast.LENGTH_LONG).show();
                     return;
                 }
 
+                setSubmitting(true);
                 checkOverlapAndConfirm(car);
             });
         }
@@ -246,12 +251,21 @@ public class BookingSummaryActivity extends BaseNavigationActivity {
         }
     }
 
+    private void setSubmitting(boolean submitting) {
+        isSubmitting = submitting;
+        if (btnConfirm != null) btnConfirm.setEnabled(!submitting);
+    }
+
     private void checkOverlapAndConfirm(Car car) {
-        if (!NetworkUtils.checkAndToast(this)) return;
+        if (!NetworkUtils.checkAndToast(this)) {
+            setSubmitting(false);
+            return;
+        }
         bookingRepository.hasBlockingOverlap(car.getId(), selectedStartTimestamp, selectedEndTimestamp, new BookingRepository.OverlapCheckCallback() {
             @Override
             public void onResult(boolean hasOverlap) {
                 if (hasOverlap) {
+                    setSubmitting(false);
                     handleOverlap(car);
                 } else {
                     confirmBooking(car);
@@ -260,6 +274,7 @@ public class BookingSummaryActivity extends BaseNavigationActivity {
 
             @Override
             public void onError(Exception error) {
+                setSubmitting(false);
                 Toast.makeText(BookingSummaryActivity.this, "Error checking availability: " + error.getMessage(), Toast.LENGTH_SHORT).show();
             }
         });
@@ -274,8 +289,12 @@ public class BookingSummaryActivity extends BaseNavigationActivity {
 
     private void confirmBooking(Car car) {
         String userId = FirestoreHelper.getCurrentUserId(BookingSummaryActivity.this);
-        if (userId == null) return;
+        if (userId == null) {
+            setSubmitting(false);
+            return;
+        }
         if (bookingService.isOwnerBookingOwnCar(userId, car)) {
+            setSubmitting(false);
             Toast.makeText(BookingSummaryActivity.this, "You cannot book your own car", Toast.LENGTH_SHORT).show();
             return;
         }
@@ -324,6 +343,7 @@ public class BookingSummaryActivity extends BaseNavigationActivity {
                     startActivity(intent);
                 })
                 .addOnFailureListener(e -> {
+                    setSubmitting(false);
                     Toast.makeText(BookingSummaryActivity.this, "Booking failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                 });
     }

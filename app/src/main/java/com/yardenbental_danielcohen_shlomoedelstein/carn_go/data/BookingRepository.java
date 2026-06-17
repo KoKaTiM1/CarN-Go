@@ -78,6 +78,28 @@ public class BookingRepository {
         return firestore.collection("bookings").document(bookingId).update("status", newStatus);
     }
 
+    public void rejectOverlappingPendingBookings(@NonNull String carId,
+                                                  @NonNull String approvedBookingId,
+                                                  long approvedStart,
+                                                  long approvedEnd) {
+        firestore.collection("bookings")
+                .whereEqualTo("carId", carId)
+                .whereEqualTo("status", BookingStatus.PENDING)
+                .get()
+                .addOnSuccessListener(snapshots -> {
+                    for (QueryDocumentSnapshot doc : snapshots) {
+                        if (doc.getId().equals(approvedBookingId)) continue;
+                        Long start = doc.getLong("startTime");
+                        Long end = doc.getLong("endTime");
+                        if (start == null || end == null) continue;
+                        boolean overlaps = start < approvedEnd && end > approvedStart;
+                        if (overlaps) {
+                            doc.getReference().update("status", BookingStatus.REJECTED);
+                        }
+                    }
+                });
+    }
+
     public Task<Void> submitPickupPhoto(@NonNull String bookingId, @NonNull String base64Image) {
         return firestore.collection("bookings")
                 .document(bookingId)

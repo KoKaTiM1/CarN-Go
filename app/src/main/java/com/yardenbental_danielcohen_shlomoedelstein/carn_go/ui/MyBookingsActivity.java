@@ -25,14 +25,16 @@ import com.yardenbental_danielcohen_shlomoedelstein.carn_go.sync.BookingStatus;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.sync.BookingSyncScheduler;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.util.NetworkUtils;
 
-import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class MyBookingsActivity extends BaseNavigationActivity implements BookingAdapter.OnBookingActionListener {
 
     private final BookingRepository bookingRepository = new BookingRepository();
     private final AppNotificationService notificationService = new AppNotificationService();
+    private final Set<String> pendingStatusUpdates = new HashSet<>();
     private SwipeRefreshLayout swipeRefresh;
     private ListView rvBookings;
     private BookingAdapter adapter;
@@ -163,16 +165,29 @@ public class MyBookingsActivity extends BaseNavigationActivity implements Bookin
 
     private void updateBookingStatus(Booking booking, String newStatus) {
         if (!NetworkUtils.checkAndToast(this)) return;
+        if (pendingStatusUpdates.contains(booking.getId())) return;
+        pendingStatusUpdates.add(booking.getId());
+
         bookingRepository.updateStatus(booking.getId(), newStatus)
                 .addOnSuccessListener(aVoid -> {
+                    pendingStatusUpdates.remove(booking.getId());
                     Toast.makeText(this, "Booking " + newStatus, Toast.LENGTH_SHORT).show();
                     booking.setStatus(newStatus);
                     adapter.notifyDataSetChanged();
 
+                    if (BookingStatus.APPROVED.equals(newStatus)) {
+                        bookingRepository.rejectOverlappingPendingBookings(
+                                booking.getCarId(), booking.getId(),
+                                booking.getStartTime(), booking.getEndTime());
+                    }
+
                     notifyRenter(booking, newStatus);
                     BookingSyncScheduler.requestImmediateSync(this, "booking_status_" + newStatus.toLowerCase());
                 })
-                .addOnFailureListener(e -> Toast.makeText(this, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+                .addOnFailureListener(e -> {
+                    pendingStatusUpdates.remove(booking.getId());
+                    Toast.makeText(this, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                });
     }
 
     private void notifyRenter(Booking booking, String status) {
