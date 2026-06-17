@@ -1,14 +1,14 @@
 package com.yardenbental_danielcohen_shlomoedelstein.carn_go.ui;
 
 import android.os.Bundle;
+import android.widget.SeekBar;
+import android.widget.Switch;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
-import com.google.android.material.slider.Slider;
-import com.google.android.material.switchmaterial.SwitchMaterial;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.AppPreferences;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.R;
 
@@ -17,9 +17,9 @@ public class SettingsActivity extends AppCompatActivity {
     private static final int[] SEARCH_RADIUS_OPTIONS = {0, 5, 10, 20, 50};
 
     private TextView tvRangeValue;
-    private Slider sliderSearchRadius;
-    private SwitchMaterial switchBookingReminders;
-    private SwitchMaterial switchDarkMode;
+    private SeekBar sliderSearchRadius;
+    private Switch switchBookingReminders;
+    private Switch switchDarkMode;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -28,6 +28,9 @@ public class SettingsActivity extends AppCompatActivity {
 
         Toolbar toolbar = findViewById(R.id.toolbarSettings);
         setSupportActionBar(toolbar);
+        if (getSupportActionBar() != null) {
+            getSupportActionBar().setTitle(R.string.app_name);
+        }
         toolbar.setNavigationOnClickListener(v -> finish());
 
         tvRangeValue = findViewById(R.id.tvRangeValue);
@@ -36,15 +39,26 @@ public class SettingsActivity extends AppCompatActivity {
         switchDarkMode = findViewById(R.id.switchDarkMode);
 
         int savedRadiusKm = AppPreferences.getSearchRadiusKm(this);
-        sliderSearchRadius.setValue(findIndexForRadius(savedRadiusKm));
+        sliderSearchRadius.setProgress(findIndexForRadius(savedRadiusKm));
         updateRangeLabel(savedRadiusKm);
         switchBookingReminders.setChecked(AppPreferences.areBookingRemindersEnabled(this));
         switchDarkMode.setChecked(AppPreferences.isDarkModeEnabled(this));
 
-        sliderSearchRadius.addOnChangeListener((slider, value, fromUser) -> {
-            int radiusKm = SEARCH_RADIUS_OPTIONS[(int) value];
-            AppPreferences.setSearchRadiusKm(this, radiusKm);
-            updateRangeLabel(radiusKm);
+        sliderSearchRadius.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                int radiusKm = SEARCH_RADIUS_OPTIONS[progress];
+                AppPreferences.setSearchRadiusKm(SettingsActivity.this, radiusKm);
+                updateRangeLabel(radiusKm);
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+            }
         });
 
         switchBookingReminders.setOnCheckedChangeListener((buttonView, isChecked) ->

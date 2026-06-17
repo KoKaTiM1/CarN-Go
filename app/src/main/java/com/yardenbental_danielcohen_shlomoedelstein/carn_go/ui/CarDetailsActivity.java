@@ -2,9 +2,8 @@ package com.yardenbental_danielcohen_shlomoedelstein.carn_go.ui;
 
 import android.os.Bundle;
 import android.util.Base64;
-import android.view.LayoutInflater;
+import android.content.Intent;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -12,11 +11,8 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 import androidx.appcompat.widget.Toolbar;
-import androidx.fragment.app.Fragment;
-import androidx.navigation.Navigation;
 
 import com.bumptech.glide.Glide;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -30,18 +26,18 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Fragment that displays detailed information about a specific car.
+ * Activity that displays detailed information about a specific car.
  */
-public class CarDetailsFragment extends Fragment {
+public class CarDetailsActivity extends BaseNavigationActivity {
 
-    @Nullable
     @Override
-    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-        // Inflate the layout for this fragment
-        View view = inflater.inflate(R.layout.fragment_car_details, container, false);
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setTitle(R.string.app_name);
+        setScreenContent(R.layout.fragment_car_details, 0, false, true);
+        View view = findViewById(android.R.id.content);
 
-        // Retrieve the Car object passed from the previous fragment
-        Car car = (Car) getArguments().getSerializable("car");
+        Car car = (Car) getIntent().getSerializableExtra("car");
         if (car != null) {
             ImageView ivCarImage = view.findViewById(R.id.ivCarDetailImage);
             TextView tvName = view.findViewById(R.id.tvDetailName);
@@ -55,6 +51,7 @@ public class CarDetailsFragment extends Fragment {
             TextView tvAvailableTo = view.findViewById(R.id.tvDetailAvailableTo);
             TextView tvBusySlotsLabel = view.findViewById(R.id.tvBusySlotsLabel);
             TextView tvBusySlots = view.findViewById(R.id.tvBusySlots);
+            TextView tvDescription = view.findViewById(R.id.tvDetailDescription);
 
             // Populate the UI with car details
             tvName.setText(car.getName());
@@ -66,6 +63,15 @@ public class CarDetailsFragment extends Fragment {
             SimpleDateFormat sdf = new SimpleDateFormat("MMM d, yyyy HH:mm", Locale.getDefault());
             tvAvailableFrom.setText("From: " + sdf.format(new Date(car.getAvailableFrom())));
             tvAvailableTo.setText("To: " + sdf.format(new Date(car.getAvailableTo())));
+
+            String description = car.getDescription() == null ? "" : car.getDescription().trim();
+            if (description.isEmpty()) {
+                tvDescription.setText(R.string.no_car_description);
+                tvDescription.setTextColor(ContextCompat.getColor(this, R.color.on_surface_variant));
+            } else {
+                tvDescription.setText(description);
+                tvDescription.setTextColor(ContextCompat.getColor(this, R.color.on_surface));
+            }
 
             // Show or hide Fuel Type based on availability
             if (car.getFuelType() != null && !car.getFuelType().isEmpty()) {
@@ -117,20 +123,16 @@ public class CarDetailsFragment extends Fragment {
 
         // Navigate to booking summary when "Book Now" is clicked
         view.findViewById(R.id.btnBookNow).setOnClickListener(v -> {
-            Bundle bundle = new Bundle();
-            bundle.putSerializable("car", car);
-            Navigation.findNavController(view).navigate(R.id.action_carDetailsFragment_to_bookingSummaryFragment, bundle);
+            Intent intent = new Intent(this, BookingSummaryActivity.class);
+            intent.putExtra("car", car);
+            startActivity(intent);
         });
 
         // Handle back navigation from the toolbar navigation icon
         Toolbar toolbar = view.findViewById(R.id.toolbar);
         if (toolbar != null) {
-            toolbar.setNavigationOnClickListener(v -> {
-                Navigation.findNavController(view).navigateUp();
-            });
+            toolbar.setNavigationOnClickListener(v -> finish());
         }
-
-        return view;
     }
 
     private void fetchAndShowBusySlots(String carId, TextView label, TextView content) {

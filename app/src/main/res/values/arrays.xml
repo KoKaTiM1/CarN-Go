@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="car_type_options">
+        <item>Economy</item>
+        <item>Compact</item>
+        <item>Sedan</item>
+        <item>SUV</item>
+        <item>Hatchback</item>
+        <item>Hybrid</item>
+        <item>Other</item>
+    </string-array>
+
+    <string-array name="transmission_options">
+        <item>Auto</item>
+        <item>Manual</item>
+    </string-array>
+
+    <string-array name="fuel_type_options">
+        <item>Gasoline</item>
+        <item>Diesel</item>
+        <item>Hybrid</item>
+        <item>Electric</item>
+        <item>Other</item>
+    </string-array>
+
+    <string-array name="filter_all_type_options">
+        <item>Any</item>
+        <item>Economy</item>
+        <item>Compact</item>
+        <item>Sedan</item>
+        <item>SUV</item>
+        <item>Hatchback</item>
+        <item>Hybrid</item>
+        <item>Other</item>
+    </string-array>
+
+    <string-array name="filter_all_transmission_options">
+        <item>Any</item>
+        <item>Auto</item>
+        <item>Manual</item>
+    </string-array>
+
+    <string-array name="filter_all_fuel_options">
+        <item>Any</item>
+        <item>Gasoline</item>
+        <item>Diesel</item>
+        <item>Hybrid</item>
+        <item>Electric</item>
+        <item>Other</item>
+    </string-array>
+</resources>
