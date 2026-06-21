@@ -71,11 +71,19 @@
                 android:inputType="textPostalAddress" />
         </LinearLayout>
 
+        <Button
+            android:id="@+id/btnUseCurrentLocation"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:text="Use Current GPS Location" />
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:layout_marginBottom="8dp">
+            android:layout_marginBottom="8dp"
+            android:orientation="vertical">
 
             <TextView
                 android:layout_width="match_parent"
@@ -92,14 +100,6 @@
                 android:minLines="2" />
         </LinearLayout>
 
-        <Button
-            android:id="@+id/btnUseCurrentLocation"
-            style="@style/Widget.Material3.Button.OutlinedButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="12dp"
-            android:text="Use Current GPS Location" />
-
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -114,7 +114,13 @@
             <Spinner
                 android:id="@+id/etType"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_form_spinner"
+                android:minHeight="52dp"
+                android:paddingStart="14dp"
+                android:paddingEnd="10dp"
+                android:popupBackground="@android:color/white"
+                android:spinnerMode="dropdown" />
         </LinearLayout>
 
         <LinearLayout
@@ -131,7 +137,13 @@
             <Spinner
                 android:id="@+id/etTransmission"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_form_spinner"
+                android:minHeight="52dp"
+                android:paddingStart="14dp"
+                android:paddingEnd="10dp"
+                android:popupBackground="@android:color/white"
+                android:spinnerMode="dropdown" />
         </LinearLayout>
 
         <LinearLayout
@@ -167,7 +179,13 @@
             <Spinner
                 android:id="@+id/etFuelType"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_form_spinner"
+                android:minHeight="52dp"
+                android:paddingStart="14dp"
+                android:paddingEnd="10dp"
+                android:popupBackground="@android:color/white"
+                android:spinnerMode="dropdown" />
         </LinearLayout>
 
         <TextView

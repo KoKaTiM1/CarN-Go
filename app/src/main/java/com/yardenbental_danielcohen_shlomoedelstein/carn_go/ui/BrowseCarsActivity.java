@@ -25,6 +25,7 @@ import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.core.content.ContextCompat;
@@ -48,6 +49,7 @@ import java.util.concurrent.TimeUnit;
 
 public class BrowseCarsActivity extends BaseNavigationActivity {
 
+    private static final String TAG = "BrowseCarsActivity";
     private static final long REFRESH_INTERVAL = 600000;
     private static final long MIN_RELOAD_GAP_MS = 1500;
     private static final long LOCATION_REFRESH_INTERVAL_MS = TimeUnit.MINUTES.toMillis(10);
@@ -71,6 +73,7 @@ public class BrowseCarsActivity extends BaseNavigationActivity {
     private Spinner dropdownFuelFilter;
     private boolean isLoadingCars = false;
     private boolean pendingReload = false;
+    private boolean currentLoadIsManualRefresh = false;
     private long lastLoadStartedAt = 0L;
     private long lastLoadCompletedAt = 0L;
     private long lastLocationRefreshAt = 0L;
@@ -117,7 +120,7 @@ public class BrowseCarsActivity extends BaseNavigationActivity {
         rvCars.setAdapter(adapter);
 
         if (swipeRefresh != null) {
-            swipeRefresh.setOnRefreshListener(() -> requestCarsReload(true, true));
+            swipeRefresh.setOnRefreshListener(() -> requestCarsReload(true, true, "manual_swipe"));
             swipeRefresh.setOnChildScrollUpCallback((parent, child) -> rvCars != null && rvCars.canScrollVertically(-1));
             swipeRefresh.setRefreshing(false);
         }
@@ -194,21 +197,29 @@ public class BrowseCarsActivity extends BaseNavigationActivity {
     }
 
     private void requestCarsReload(boolean force) {
-        requestCarsReload(force, false);
+        requestCarsReload(force, false, "generic");
     }
 
     private void requestCarsReload(boolean force, boolean forceLocationRefresh) {
+        requestCarsReload(force, forceLocationRefresh, "generic");
+    }
+
+    private void requestCarsReload(boolean force, boolean forceLocationRefresh, @NonNull String trigger) {
         long now = System.currentTimeMillis();
         if (!force && now - lastLoadStartedAt < MIN_RELOAD_GAP_MS) {
+            logRefreshDebug(trigger, "Skipped reload because MIN_RELOAD_GAP_MS is active");
             setRefreshingState(false);
             return;
         }
         if (isLoadingCars) {
             pendingReload = true;
+            logRefreshDebug(trigger, "Reload requested while another load is in progress; marked as pending");
             setRefreshingState(false);
             return;
         }
-        loadCars(forceLocationRefresh);
+        currentLoadIsManualRefresh = "manual_swipe".equals(trigger);
+        logRefreshDebug(trigger, "Starting reload");
+        loadCars(forceLocationRefresh, trigger);
     }
 
     private void refreshOnResume() {
@@ -218,7 +229,7 @@ public class BrowseCarsActivity extends BaseNavigationActivity {
         boolean staleData = System.currentTimeMillis() - lastLoadCompletedAt >= REFRESH_INTERVAL;
 
         if (needsInitialLoad || staleData) {
-            requestCarsReload(needsInitialLoad);
+            requestCarsReload(needsInitialLoad, false, needsInitialLoad ? "resume_initial_load" : "resume_stale_data");
         } else {
             setRefreshingState(false);
             if (radiusChanged) {
@@ -271,36 +282,41 @@ public class BrowseCarsActivity extends BaseNavigationActivity {
         maybeRefreshLocation();
     }
 
-    private void loadCars(boolean forceLocationRefresh) {
+    private void loadCars(boolean forceLocationRefresh, @NonNull String trigger) {
         isLoadingCars = true;
         lastLoadStartedAt = System.currentTimeMillis();
         setRefreshingState(true);
 
         if (needsLocationRefresh(forceLocationRefresh)) {
-            requestCurrentLocationOnce(this::loadCarsFromFirestore);
+            logRefreshDebug(trigger, "Refreshing location before Firestore query");
+            requestCurrentLocationOnce(() -> loadCarsFromFirestore(trigger));
         } else {
-            loadCarsFromFirestore();
+            loadCarsFromFirestore(trigger);
         }
     }
 
-    private void loadCarsFromFirestore() {
+    private void loadCarsFromFirestore(@NonNull String trigger) {
         if (!NetworkUtils.checkAndToast(this)) {
+            logRefreshDebug(trigger, "Stopped before Firestore query because validated internet is not available");
             finishLoading();
             return;
         }
         String currentUserId = FirestoreHelper.getCurrentUserId(this);
+        logRefreshDebug(trigger, "Querying Firestore for available cars. currentUserId=" + currentUserId);
         CarDiscoveryHelper.loadAvailableCars(this, System.currentTimeMillis(), currentUserId, new CarDiscoveryHelper.CarsResultCallback() {
             @Override
             public void onSuccess(List<Car> loadedCars) {
                 allCars.clear();
                 allCars.addAll(loadedCars);
                 applyFiltersAndSort();
+                logRefreshDebug(trigger, "Firestore success. allCars=" + allCars.size() + ", visibleCars=" + cars.size());
                 finishLoading();
             }
 
             @Override
             public void onError(Exception error) {
-                Log.e("BrowseCarsActivity", "Error loading cars", error);
+                Log.e(TAG, "Error loading cars for trigger=" + trigger, error);
+                logRefreshDebug(trigger, "Firestore error: " + error.getClass().getSimpleName() + ": " + error.getMessage());
                 Toast.makeText(BrowseCarsActivity.this, R.string.failed_to_load_cars, Toast.LENGTH_SHORT).show();
                 finishLoading();
             }
@@ -403,6 +419,10 @@ public class BrowseCarsActivity extends BaseNavigationActivity {
     private void finishLoading() {
         isLoadingCars = false;
         lastLoadCompletedAt = System.currentTimeMillis();
+        if (currentLoadIsManualRefresh) {
+            Log.d(TAG, "Manual refresh finished at=" + lastLoadCompletedAt);
+        }
+        currentLoadIsManualRefresh = false;
         setRefreshingState(false);
         stopPeriodicRefresh();
         startPeriodicRefresh();
@@ -457,6 +477,10 @@ public class BrowseCarsActivity extends BaseNavigationActivity {
         if (!allCars.isEmpty()) {
             applyFiltersAndSort();
         }
+    }
+
+    private void logRefreshDebug(@NonNull String trigger, @NonNull String message) {
+        Log.d(TAG, "refresh[" + trigger + "] " + message);
     }
 
     private void runLocationComplete(@Nullable Runnable onComplete) {
