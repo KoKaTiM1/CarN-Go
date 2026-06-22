@@ -45,6 +45,7 @@ public class CarDetailsActivity extends BaseNavigationActivity {
             ImageView ivCarImage = view.findViewById(R.id.ivCarDetailImage);
             TextView tvName = view.findViewById(R.id.tvDetailName);
             TextView tvRating = view.findViewById(R.id.tvDetailRating);
+            View ivRatingStar = view.findViewById(R.id.ivDetailRatingStar);
             TextView tvSeats = view.findViewById(R.id.tvDetailSeats);
             TextView tvTransmission = view.findViewById(R.id.tvDetailTransmission);
             TextView tvTag = view.findViewById(R.id.tvDetailTag);
@@ -58,7 +59,14 @@ public class CarDetailsActivity extends BaseNavigationActivity {
 
             // Populate the UI with car details
             tvName.setText(car.getName());
-            tvRating.setText(String.valueOf(car.getRating()));
+            if (car.hasRealRating()) {
+                tvRating.setText(String.format(Locale.getDefault(), "%.1f", car.getRating()));
+                tvRating.setVisibility(View.VISIBLE);
+                ivRatingStar.setVisibility(View.VISIBLE);
+            } else {
+                tvRating.setVisibility(View.GONE);
+                ivRatingStar.setVisibility(View.GONE);
+            }
             tvSeats.setText(car.getSeats() + " Seats");
             tvTransmission.setText(car.getTransmission());
 

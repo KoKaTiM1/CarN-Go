@@ -8,6 +8,8 @@ import android.provider.MediaStore;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.RatingBar;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -26,7 +28,10 @@ public class RentalCompletionActivity extends BaseNavigationActivity {
     private ImageView ivPhoto;
     private Button btnSubmit;
     private View layoutOverlay;
+    private RatingBar ratingBar;
+    private TextView tvRatingValue;
     private String base64Image = null;
+    private float selectedRating = 0f;
     private Booking booking;
 
     private final ActivityResultLauncher<Intent> cameraLauncher = registerForActivityResult(
@@ -38,7 +43,7 @@ public class RentalCompletionActivity extends BaseNavigationActivity {
                         ivPhoto.setImageBitmap(photo);
                         layoutOverlay.setVisibility(View.GONE);
                         base64Image = encodeImage(photo);
-                        btnSubmit.setEnabled(true);
+                        updateSubmitEnabledState();
                     }
                 }
             }
@@ -55,12 +60,27 @@ public class RentalCompletionActivity extends BaseNavigationActivity {
         ivPhoto = view.findViewById(R.id.ivCompletionPhoto);
         btnSubmit = view.findViewById(R.id.btnSubmitCompletion);
         layoutOverlay = view.findViewById(R.id.layoutPhotoOverlay);
+        ratingBar = view.findViewById(R.id.ratingBarCompletion);
+        tvRatingValue = view.findViewById(R.id.tvCompletionRatingValue);
 
         view.findViewById(R.id.cardCompletionPhoto).setOnClickListener(v -> {
             Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
             cameraLauncher.launch(takePictureIntent);
         });
 
+        ratingBar.setOnRatingBarChangeListener((bar, rating, fromUser) -> {
+            float normalizedRating = rating <= 0f ? 0f : Math.max(1f, rating);
+            if (normalizedRating != rating) {
+                bar.setRating(normalizedRating);
+                return;
+            }
+            selectedRating = normalizedRating;
+            updateRatingLabel();
+            updateSubmitEnabledState();
+        });
+
+        updateRatingLabel();
+        updateSubmitEnabledState();
         btnSubmit.setOnClickListener(v -> completeRental());
     }
 
@@ -69,19 +89,31 @@ public class RentalCompletionActivity extends BaseNavigationActivity {
     }
 
     private void completeRental() {
-        if (base64Image == null || booking == null) return;
+        if (base64Image == null || booking == null || selectedRating < 1f) return;
         if (!NetworkUtils.checkAndToast(this)) return;
 
         btnSubmit.setEnabled(false);
-        bookingRepository.completeBooking(booking.getId(), base64Image)
+        bookingRepository.completeBooking(booking, base64Image, selectedRating)
                 .addOnSuccessListener(aVoid -> {
                     BookingSyncScheduler.requestImmediateSync(this, "rental_completed");
-                    Toast.makeText(this, "Rental completed successfully!", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, R.string.rental_completed_successfully, Toast.LENGTH_SHORT).show();
                     finish();
                 })
                 .addOnFailureListener(e -> {
-                    Toast.makeText(this, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                    btnSubmit.setEnabled(true);
+                    Toast.makeText(this, getString(R.string.rating_completion_error, e.getMessage()), Toast.LENGTH_SHORT).show();
+                    updateSubmitEnabledState();
                 });
+    }
+
+    private void updateRatingLabel() {
+        if (selectedRating > 0f) {
+            tvRatingValue.setText(getString(R.string.selected_rating_value, selectedRating));
+        } else {
+            tvRatingValue.setText(R.string.rating_required_hint);
+        }
+    }
+
+    private void updateSubmitEnabledState() {
+        btnSubmit.setEnabled(base64Image != null && selectedRating >= 1f);
     }
 }

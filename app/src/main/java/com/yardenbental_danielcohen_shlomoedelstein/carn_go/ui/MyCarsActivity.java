@@ -690,7 +690,8 @@ public class MyCarsActivity extends BaseNavigationActivity {
                 carData.put("type", type);
                 carData.put("imageUrl", encodedImage);
                 carData.put("ownerId", FirestoreHelper.getCurrentUserId(MyCarsActivity.this));
-                carData.put("rating", 5.0);
+                carData.put("rating", 0.0);
+                carData.put("ratingCount", 0);
                 carData.put("transmission", transmission);
                 carData.put("seats", seats);
                 carData.put("fuelType", fuelType);

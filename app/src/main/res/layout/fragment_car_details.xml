@@ -73,6 +73,7 @@
                     android:layout_weight="1" />
 
                 <ImageView
+                    android:id="@+id/ivDetailRatingStar"
                     android:layout_width="16dp"
                     android:layout_height="16dp"
                     android:src="@android:drawable/btn_star_big_on"

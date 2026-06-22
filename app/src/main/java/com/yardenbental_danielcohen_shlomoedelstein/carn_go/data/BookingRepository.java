@@ -4,8 +4,10 @@ import androidx.annotation.NonNull;
 
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
+import com.google.firebase.firestore.Transaction;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Booking;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.sync.BookingStatus;
 
@@ -106,10 +108,40 @@ public class BookingRepository {
                 .update("startPhotoUrl", base64Image, "status", BookingStatus.ACTIVE);
     }
 
-    public Task<Void> completeBooking(@NonNull String bookingId, @NonNull String base64Image) {
-        return firestore.collection("bookings")
-                .document(bookingId)
-                .update("status", BookingStatus.COMPLETED, "endPhotoUrl", base64Image);
+    public Task<Void> completeBooking(@NonNull Booking booking, @NonNull String base64Image, double submittedRating) {
+        DocumentReference bookingRef = firestore.collection("bookings").document(booking.getId());
+        DocumentReference carRef = firestore.collection("cars").document(booking.getCarId());
+
+        return firestore.runTransaction((Transaction.Function<Void>) transaction -> {
+            DocumentSnapshot bookingSnapshot = transaction.get(bookingRef);
+            DocumentSnapshot carSnapshot = transaction.get(carRef);
+
+            String currentStatus = bookingSnapshot.getString("status");
+            if (BookingStatus.COMPLETED.equals(currentStatus)) {
+                throw new IllegalStateException("Booking already completed");
+            }
+            if (!carSnapshot.exists()) {
+                throw new IllegalStateException("Car not found");
+            }
+
+            Long ratingCountLong = carSnapshot.getLong("ratingCount");
+            Double currentRating = carSnapshot.getDouble("rating");
+            int currentCount = ratingCountLong != null ? ratingCountLong.intValue() : 0;
+            double existingAverage = currentRating != null ? currentRating : 0.0;
+
+            int newCount = currentCount + 1;
+            double newAverage = currentCount <= 0
+                    ? submittedRating
+                    : ((existingAverage * currentCount) + submittedRating) / newCount;
+
+            transaction.update(bookingRef,
+                    "status", BookingStatus.COMPLETED,
+                    "endPhotoUrl", base64Image);
+            transaction.update(carRef,
+                    "rating", newAverage,
+                    "ratingCount", newCount);
+            return null;
+        });
     }
 
     public Task<DocumentReference> createBooking(@NonNull Map<String, Object> bookingData) {

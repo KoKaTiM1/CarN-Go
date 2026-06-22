@@ -123,6 +123,7 @@ public class CarRepository {
         Double longitude = document.getDouble("longitude");
         Double price = document.getDouble("pricePerHour");
         Double rating = document.getDouble("rating");
+        Long ratingCountLong = document.getLong("ratingCount");
         String imageUrl = document.getString("imageUrl");
         String transmission = document.getString("transmission");
         Long seatsLong = document.getLong("seats");
@@ -142,7 +143,8 @@ public class CarRepository {
                 latitude,
                 longitude,
                 price != null ? price : 0.0,
-                rating != null ? rating : 5.0,
+                rating != null ? rating : 0.0,
+                ratingCountLong != null ? ratingCountLong.intValue() : 0,
                 imageUrl,
                 transmission != null ? transmission : context.getString(R.string.auto),
                 seats,

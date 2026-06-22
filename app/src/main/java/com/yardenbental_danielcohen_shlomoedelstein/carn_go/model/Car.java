@@ -17,6 +17,7 @@ public class Car implements Serializable {
     private Double distanceKm;
     private double pricePerHour;
     private double rating;
+    private int ratingCount;
     private String imageUrl;
     private String transmission;
     private int seats;
@@ -30,10 +31,14 @@ public class Car implements Serializable {
      * Constructs a new Car with the specified details.
      */
     public Car(String id, String name, String description, String type, String location, double pricePerHour, double rating, String imageUrl, String transmission, int seats, String fuelType, String tag, String ownerId, long availableFrom, long availableTo) {
-        this(id, name, description, type, location, null, null, pricePerHour, rating, imageUrl, transmission, seats, fuelType, tag, ownerId, availableFrom, availableTo);
+        this(id, name, description, type, location, null, null, pricePerHour, rating, 0, imageUrl, transmission, seats, fuelType, tag, ownerId, availableFrom, availableTo);
     }
 
     public Car(String id, String name, String description, String type, String location, Double latitude, Double longitude, double pricePerHour, double rating, String imageUrl, String transmission, int seats, String fuelType, String tag, String ownerId, long availableFrom, long availableTo) {
+        this(id, name, description, type, location, latitude, longitude, pricePerHour, rating, 0, imageUrl, transmission, seats, fuelType, tag, ownerId, availableFrom, availableTo);
+    }
+
+    public Car(String id, String name, String description, String type, String location, Double latitude, Double longitude, double pricePerHour, double rating, int ratingCount, String imageUrl, String transmission, int seats, String fuelType, String tag, String ownerId, long availableFrom, long availableTo) {
         this.id = id;
         this.name = name;
         this.description = normalizeDescription(description);
@@ -43,6 +48,7 @@ public class Car implements Serializable {
         this.longitude = longitude;
         this.pricePerHour = pricePerHour;
         this.rating = rating;
+        this.ratingCount = Math.max(0, ratingCount);
         this.imageUrl = imageUrl;
         this.transmission = transmission;
         this.seats = seats;
@@ -63,6 +69,7 @@ public class Car implements Serializable {
     public Double getDistanceKm() { return distanceKm; }
     public double getPricePerHour() { return pricePerHour; }
     public double getRating() { return rating; }
+    public int getRatingCount() { return ratingCount; }
     public String getImageUrl() { return imageUrl; }
     public String getTransmission() { return transmission; }
     public int getSeats() { return seats; }
@@ -78,6 +85,10 @@ public class Car implements Serializable {
     public void setAvailableFrom(long availableFrom) { this.availableFrom = availableFrom; }
     public void setAvailableTo(long availableTo) { this.availableTo = availableTo; }
     public void setDistanceKm(Double distanceKm) { this.distanceKm = distanceKm; }
+
+    public boolean hasRealRating() {
+        return ratingCount > 0;
+    }
 
     private static String normalizeDescription(String description) {
         if (description == null) {
