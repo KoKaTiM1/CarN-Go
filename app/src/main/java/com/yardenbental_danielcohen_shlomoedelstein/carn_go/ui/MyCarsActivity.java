@@ -140,6 +140,7 @@ public class MyCarsActivity extends BaseNavigationActivity {
                             pendingLocationAction.run();
                         }
                     } else {
+                        Log.w("MyCarsActivity", "Location permission denied by user");
                         showLocationPermissionSettingsDialog();
                     }
                     pendingLocationAction = null;
@@ -314,6 +315,7 @@ public class MyCarsActivity extends BaseNavigationActivity {
 
             @Override
             public void onError(Exception error) {
+                Log.e("MyCarsActivity", "Failed to fetch active bookings before car update", error);
                 Toast.makeText(MyCarsActivity.this, getString(R.string.error_updating, error.getMessage()), Toast.LENGTH_SHORT).show();
             }
         });
@@ -339,7 +341,10 @@ public class MyCarsActivity extends BaseNavigationActivity {
                     Toast.makeText(MyCarsActivity.this, R.string.car_updated, Toast.LENGTH_SHORT).show();
                     fetchMyCars();
                 })
-                .addOnFailureListener(e -> Toast.makeText(MyCarsActivity.this, getString(R.string.error_updating, e.getMessage()), Toast.LENGTH_SHORT).show());
+                .addOnFailureListener(e -> {
+                    Log.e("MyCarsActivity", "Failed to update car", e);
+                    Toast.makeText(MyCarsActivity.this, getString(R.string.error_updating, e.getMessage()), Toast.LENGTH_SHORT).show();
+                });
     }
 
     private void showDeleteConfirmationDialog(Car car) {
@@ -353,7 +358,10 @@ public class MyCarsActivity extends BaseNavigationActivity {
                             Toast.makeText(MyCarsActivity.this, R.string.car_deleted, Toast.LENGTH_SHORT).show();
                             fetchMyCars();
                         })
-                        .addOnFailureListener(e -> Toast.makeText(MyCarsActivity.this, getString(R.string.error_deleting, e.getMessage()), Toast.LENGTH_SHORT).show());
+                        .addOnFailureListener(e -> {
+                            Log.e("MyCarsActivity", "Failed to delete car", e);
+                            Toast.makeText(MyCarsActivity.this, getString(R.string.error_deleting, e.getMessage()), Toast.LENGTH_SHORT).show();
+                        });
                 })
                 .setNegativeButton(R.string.cancel, null)
                 .show();
@@ -583,9 +591,9 @@ public class MyCarsActivity extends BaseNavigationActivity {
         ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(
                 MyCarsActivity.this,
                 optionsArrayId,
-                android.R.layout.simple_spinner_item
+                R.layout.item_spinner
         );
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        adapter.setDropDownViewResource(R.layout.item_spinner);
         spinner.setAdapter(adapter);
     }
 
@@ -708,7 +716,10 @@ public class MyCarsActivity extends BaseNavigationActivity {
                             Toast.makeText(MyCarsActivity.this, R.string.listing_added, Toast.LENGTH_SHORT).show();
                             fetchMyCars();
                         }))
-                        .addOnFailureListener(e -> mainHandler.post(() -> Toast.makeText(MyCarsActivity.this, getString(R.string.firestore_error, e.getMessage()), Toast.LENGTH_SHORT).show()));
+                        .addOnFailureListener(e -> mainHandler.post(() -> {
+                            Log.e("MyCarsActivity", "Failed to add car listing", e);
+                            Toast.makeText(MyCarsActivity.this, getString(R.string.firestore_error, e.getMessage()), Toast.LENGTH_SHORT).show();
+                        }));
 
             } catch (Exception e) {
                 Log.e("MyCarsActivity", "Upload failed", e);

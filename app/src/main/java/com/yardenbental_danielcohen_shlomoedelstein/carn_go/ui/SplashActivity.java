@@ -97,7 +97,9 @@ public class SplashActivity extends BaseNavigationActivity {
 
         notificationPermissionLauncher = registerForActivityResult(
                 new ActivityResultContracts.RequestPermission(),
-                isGranted -> Log.d("Permission", "Notification permission granted=" + isGranted)
+                isGranted -> {
+                    if (!isGranted) Log.w("Permission", "Notification permission denied by user");
+                }
         );
         askNotificationPermission();
         signInAnonymously();
@@ -111,6 +113,7 @@ public class SplashActivity extends BaseNavigationActivity {
                     if (granted) {
                         runNearbySearch();
                     } else {
+                        Log.w("Permission", "Location permission denied by user");
                         showLocationDeniedState();
                     }
                 }
