@@ -1,6 +1,7 @@
 package com.yardenbental_danielcohen_shlomoedelstein.carn_go.ui;
 
 import android.app.NotificationManager;
+import android.util.Log;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -116,6 +117,7 @@ public class MyBookingsActivity extends BaseNavigationActivity implements Bookin
             @Override
             public void onError(Exception error) {
                 if (swipeRefresh != null) swipeRefresh.setRefreshing(false);
+                Log.e("MyBookingsActivity", "Failed to load bookings", error);
                 Toast.makeText(MyBookingsActivity.this, "Error loading bookings", Toast.LENGTH_SHORT).show();
             }
         });
@@ -186,6 +188,7 @@ public class MyBookingsActivity extends BaseNavigationActivity implements Bookin
                 })
                 .addOnFailureListener(e -> {
                     pendingStatusUpdates.remove(booking.getId());
+                    Log.e("MyBookingsActivity", "Failed to update booking status to " + newStatus, e);
                     Toast.makeText(this, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                 });
     }

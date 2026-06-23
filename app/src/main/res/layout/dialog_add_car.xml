@@ -119,7 +119,7 @@
                 android:minHeight="52dp"
                 android:paddingStart="14dp"
                 android:paddingEnd="10dp"
-                android:popupBackground="@android:color/white"
+                android:popupBackground="?attr/colorSurface"
                 android:spinnerMode="dropdown" />
         </LinearLayout>
 
@@ -142,7 +142,7 @@
                 android:minHeight="52dp"
                 android:paddingStart="14dp"
                 android:paddingEnd="10dp"
-                android:popupBackground="@android:color/white"
+                android:popupBackground="?attr/colorSurface"
                 android:spinnerMode="dropdown" />
         </LinearLayout>
 
@@ -184,7 +184,7 @@
                 android:minHeight="52dp"
                 android:paddingStart="14dp"
                 android:paddingEnd="10dp"
-                android:popupBackground="@android:color/white"
+                android:popupBackground="?attr/colorSurface"
                 android:spinnerMode="dropdown" />
         </LinearLayout>
 

@@ -13,6 +13,7 @@ import android.widget.Toast;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 
+import android.util.Log;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.R;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.data.BookingRepository;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Booking;
@@ -80,6 +81,7 @@ public class RentalPickupActivity extends BaseNavigationActivity {
                     finish();
                 })
                 .addOnFailureListener(e -> {
+                    Log.e("RentalPickupActivity", "Failed to submit pickup photo", e);
                     Toast.makeText(this, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                     btnSubmit.setEnabled(true);
                 });

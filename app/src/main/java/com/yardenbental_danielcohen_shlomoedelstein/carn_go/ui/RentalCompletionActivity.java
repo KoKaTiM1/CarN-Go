@@ -15,6 +15,7 @@ import android.widget.Toast;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 
+import android.util.Log;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.R;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.data.BookingRepository;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Booking;
@@ -100,6 +101,7 @@ public class RentalCompletionActivity extends BaseNavigationActivity {
                     finish();
                 })
                 .addOnFailureListener(e -> {
+                    Log.e("RentalCompletionActivity", "Failed to complete rental", e);
                     Toast.makeText(this, getString(R.string.rating_completion_error, e.getMessage()), Toast.LENGTH_SHORT).show();
                     updateSubmitEnabledState();
                 });
