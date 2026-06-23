@@ -1,6 +1,9 @@
 package com.yardenbental_danielcohen_shlomoedelstein.carn_go.ui;
 
+import android.os.Build;
 import android.os.Bundle;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.widget.SeekBar;
 import android.widget.Switch;
 import android.widget.TextView;
@@ -85,5 +88,58 @@ public class SettingsActivity extends AppCompatActivity {
         } else {
             tvRangeValue.setText(getString(R.string.search_range_value, radiusKm));
         }
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.main_menu, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        int id = item.getItemId();
+        if (id == R.id.action_settings) {
+            return true;
+        }
+        if (id == R.id.action_about) {
+            showAboutDialog();
+            return true;
+        }
+        if (id == R.id.action_exit) {
+            showExitDialog();
+            return true;
+        }
+        if (id == android.R.id.home) {
+            finish();
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
+    private void showAboutDialog() {
+        String deviceInfo = Build.MANUFACTURER + " " + Build.MODEL
+                + ", Android " + Build.VERSION.RELEASE
+                + " (API " + Build.VERSION.SDK_INT + ")";
+        String message = getString(
+                R.string.about_dialog_message,
+                getString(R.string.app_name),
+                getPackageName(),
+                deviceInfo
+        );
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle(R.string.menu_about)
+                .setMessage(message)
+                .setPositiveButton(android.R.string.ok, null)
+                .show();
+    }
+
+    private void showExitDialog() {
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle(R.string.menu_exit)
+                .setMessage(R.string.exit_dialog_message)
+                .setPositiveButton(R.string.exit_confirm, (dialog, which) -> finishAffinity())
+                .setNegativeButton(R.string.cancel, null)
+                .show();
     }
 }

@@ -14,6 +14,7 @@ import com.yardenbental_danielcohen_shlomoedelstein.carn_go.R;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Car;
 
 import java.util.List;
+import java.util.Locale;
 
 public class CarAdapter extends BaseAdapter {
 
@@ -77,10 +78,18 @@ public class CarAdapter extends BaseAdapter {
         }
 
         holder.tvPrice.setText(context.getString(R.string.price_per_hour, (int) car.getPricePerHour()));
-        holder.tvRating.setText(String.valueOf(car.getRating()));
         holder.tvTransmission.setText(car.getTransmission());
         holder.tvSeats.setText(context.getString(R.string.seats_count, car.getSeats()));
         holder.tvTag.setText(car.getTag());
+
+        if (car.hasRealRating()) {
+            holder.ratingDivider.setVisibility(View.VISIBLE);
+            holder.tvRating.setVisibility(View.VISIBLE);
+            holder.tvRating.setText(String.format(Locale.getDefault(), "%.1f", car.getRating()));
+        } else {
+            holder.ratingDivider.setVisibility(View.GONE);
+            holder.tvRating.setVisibility(View.GONE);
+        }
 
         if (car.getTag() == null || car.getTag().isEmpty()) {
             holder.tagBackground.setVisibility(View.GONE);
@@ -136,7 +145,7 @@ public class CarAdapter extends BaseAdapter {
     static class CarViewHolder {
         ImageView ivCarImage;
         TextView tvCarName, tvLocation, tvPrice, tvRating, tvTransmission, tvSeats, tvTag;
-        View tagBackground, btnDetails, layoutEditDelete, btnEdit, btnDelete;
+        View tagBackground, ratingDivider, btnDetails, layoutEditDelete, btnEdit, btnDelete;
 
         CarViewHolder(View itemView) {
             ivCarImage = itemView.findViewById(R.id.ivCarImage);
@@ -148,6 +157,7 @@ public class CarAdapter extends BaseAdapter {
             tvSeats = itemView.findViewById(R.id.tvSeats);
             tvTag = itemView.findViewById(R.id.tvTag);
             tagBackground = itemView.findViewById(R.id.tagBackground);
+            ratingDivider = itemView.findViewById(R.id.tvRatingDivider);
             btnDetails = itemView.findViewById(R.id.btnDetails);
             layoutEditDelete = itemView.findViewById(R.id.layoutEditDelete);
             btnEdit = itemView.findViewById(R.id.btnEdit);

@@ -15,9 +15,10 @@ import androidx.core.content.ContextCompat;
 import androidx.appcompat.widget.Toolbar;
 
 import com.bumptech.glide.Glide;
-import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.R;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.data.CarRepository;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.util.NetworkUtils;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.firebase.FirestoreHelper;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Booking;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Car;
 
@@ -29,6 +30,8 @@ import java.util.List;
  * Activity that displays detailed information about a specific car.
  */
 public class CarDetailsActivity extends BaseNavigationActivity {
+
+    private final CarRepository carRepository = new CarRepository();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -42,6 +45,7 @@ public class CarDetailsActivity extends BaseNavigationActivity {
             ImageView ivCarImage = view.findViewById(R.id.ivCarDetailImage);
             TextView tvName = view.findViewById(R.id.tvDetailName);
             TextView tvRating = view.findViewById(R.id.tvDetailRating);
+            View ivRatingStar = view.findViewById(R.id.ivDetailRatingStar);
             TextView tvSeats = view.findViewById(R.id.tvDetailSeats);
             TextView tvTransmission = view.findViewById(R.id.tvDetailTransmission);
             TextView tvTag = view.findViewById(R.id.tvDetailTag);
@@ -55,7 +59,14 @@ public class CarDetailsActivity extends BaseNavigationActivity {
 
             // Populate the UI with car details
             tvName.setText(car.getName());
-            tvRating.setText(String.valueOf(car.getRating()));
+            if (car.hasRealRating()) {
+                tvRating.setText(String.format(Locale.getDefault(), "%.1f", car.getRating()));
+                tvRating.setVisibility(View.VISIBLE);
+                ivRatingStar.setVisibility(View.VISIBLE);
+            } else {
+                tvRating.setVisibility(View.GONE);
+                ivRatingStar.setVisibility(View.GONE);
+            }
             tvSeats.setText(car.getSeats() + " Seats");
             tvTransmission.setText(car.getTransmission());
 
@@ -122,11 +133,20 @@ public class CarDetailsActivity extends BaseNavigationActivity {
         }
 
         // Navigate to booking summary when "Book Now" is clicked
-        view.findViewById(R.id.btnBookNow).setOnClickListener(v -> {
-            Intent intent = new Intent(this, BookingSummaryActivity.class);
-            intent.putExtra("car", car);
-            startActivity(intent);
-        });
+        View bookNowButton = view.findViewById(R.id.btnBookNow);
+        String currentUserId = FirestoreHelper.getCurrentUserId(this);
+        boolean isOwnCar = car != null
+                && currentUserId != null
+                && currentUserId.equals(car.getOwnerId());
+        if (isOwnCar) {
+            bookNowButton.setVisibility(View.GONE);
+        } else {
+            bookNowButton.setOnClickListener(v -> {
+                Intent intent = new Intent(this, BookingSummaryActivity.class);
+                intent.putExtra("car", car);
+                startActivity(intent);
+            });
+        }
 
         // Handle back navigation from the toolbar navigation icon
         Toolbar toolbar = view.findViewById(R.id.toolbar);
@@ -136,41 +156,39 @@ public class CarDetailsActivity extends BaseNavigationActivity {
     }
 
     private void fetchAndShowBusySlots(String carId, TextView label, TextView content) {
-        FirebaseFirestore db = FirebaseFirestore.getInstance();
-        db.collection("bookings")
-                .whereEqualTo("carId", carId)
-                .whereGreaterThan("endTime", System.currentTimeMillis())
-                .get()
-                .addOnSuccessListener(queryDocumentSnapshots -> {
-                    List<Booking> bookings = new ArrayList<>();
-                    for (QueryDocumentSnapshot doc : queryDocumentSnapshots) {
-                        Booking b = doc.toObject(Booking.class);
-                        // Ignore rejected bookings in the "Busy Slots" list
-                        if (!"REJECTED".equals(b.getStatus())) {
-                            bookings.add(b);
-                        }
-                    }
+        if (!NetworkUtils.isConnected(this)) {
+            label.setVisibility(View.GONE);
+            content.setVisibility(View.GONE);
+            return;
+        }
+        carRepository.fetchFutureBookingsForCar(carId, new CarRepository.BookingsCallback() {
+            @Override
+            public void onSuccess(List<Booking> bookings) {
+                if (bookings.isEmpty()) {
+                    label.setVisibility(View.GONE);
+                    content.setVisibility(View.GONE);
+                    return;
+                }
 
-                    if (bookings.isEmpty()) {
-                        label.setVisibility(View.GONE);
-                        content.setVisibility(View.GONE);
-                        return;
-                    }
+                StringBuilder sb = new StringBuilder();
+                SimpleDateFormat sdf = new SimpleDateFormat("MMM d, HH:mm", Locale.getDefault());
+                for (Booking booking : bookings) {
+                    if (sb.length() > 0) sb.append("\n");
+                    sb.append(sdf.format(new Date(booking.getStartTime())))
+                            .append(" - ")
+                            .append(sdf.format(new Date(booking.getEndTime())));
+                }
 
-                    Collections.sort(bookings, (b1, b2) -> Long.compare(b1.getStartTime(), b2.getStartTime()));
+                label.setVisibility(View.VISIBLE);
+                content.setVisibility(View.VISIBLE);
+                content.setText(sb.toString());
+            }
 
-                    StringBuilder sb = new StringBuilder();
-                    SimpleDateFormat sdf = new SimpleDateFormat("MMM d, HH:mm", Locale.getDefault());
-                    for (Booking b : bookings) {
-                        if (sb.length() > 0) sb.append("\n");
-                        sb.append(sdf.format(new Date(b.getStartTime())))
-                          .append(" - ")
-                          .append(sdf.format(new Date(b.getEndTime())));
-                    }
-
-                    label.setVisibility(View.VISIBLE);
-                    content.setVisibility(View.VISIBLE);
-                    content.setText(sb.toString());
-                });
+            @Override
+            public void onError(Exception error) {
+                label.setVisibility(View.GONE);
+                content.setVisibility(View.GONE);
+            }
+        });
     }
 }

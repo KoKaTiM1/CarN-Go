@@ -38,6 +38,7 @@ import com.yardenbental_danielcohen_shlomoedelstein.carn_go.discovery.CarDiscove
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.firebase.FirestoreHelper;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Car;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.sync.BookingSyncScheduler;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.util.NetworkUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -192,6 +193,9 @@ public class SplashActivity extends BaseNavigationActivity {
         if (isSearching) {
             return;
         }
+        if (!NetworkUtils.checkAndToast(this)) {
+            return;
+        }
 
         if (hasLocationPermission()) {
             runNearbySearch();
@@ -251,7 +255,8 @@ public class SplashActivity extends BaseNavigationActivity {
     }
 
     private void loadNearbyCars(@NonNull Location location) {
-        CarDiscoveryHelper.loadAvailableCars(SplashActivity.this, System.currentTimeMillis(), new CarDiscoveryHelper.CarsResultCallback() {
+        String currentUserId = FirestoreHelper.getCurrentUserId(SplashActivity.this);
+        CarDiscoveryHelper.loadAvailableCars(SplashActivity.this, System.currentTimeMillis(), currentUserId, new CarDiscoveryHelper.CarsResultCallback() {
             @Override
             public void onSuccess(List<Car> cars) {
                 if (!!isFinishing()) {

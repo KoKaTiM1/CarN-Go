@@ -5,7 +5,6 @@ import android.content.Intent;
 import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.provider.MediaStore;
-import android.util.Base64;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
@@ -14,16 +13,16 @@ import android.widget.Toast;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 
-import com.google.firebase.firestore.FirebaseFirestore;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.R;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.data.BookingRepository;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Booking;
-import com.yardenbental_danielcohen_shlomoedelstein.carn_go.sync.BookingStatus;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.sync.BookingSyncScheduler;
-
-import java.io.ByteArrayOutputStream;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.util.ImageCodec;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.util.NetworkUtils;
 
 public class RentalPickupActivity extends BaseNavigationActivity {
 
+    private final BookingRepository bookingRepository = new BookingRepository();
     private ImageView ivPhoto;
     private Button btnSubmit;
     private View layoutOverlay;
@@ -66,19 +65,15 @@ public class RentalPickupActivity extends BaseNavigationActivity {
     }
 
     private String encodeImage(Bitmap bitmap) {
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 70, baos);
-        byte[] b = baos.toByteArray();
-        return Base64.encodeToString(b, Base64.DEFAULT);
+        return ImageCodec.encodeJpegBase64(bitmap, 70);
     }
 
     private void submitPickupPhoto() {
         if (base64Image == null || booking == null) return;
+        if (!NetworkUtils.checkAndToast(this)) return;
 
         btnSubmit.setEnabled(false);
-        FirebaseFirestore db = FirebaseFirestore.getInstance();
-        db.collection("bookings").document(booking.getId())
-                .update("startPhotoUrl", base64Image, "status", BookingStatus.ACTIVE)
+        bookingRepository.submitPickupPhoto(booking.getId(), base64Image)
                 .addOnSuccessListener(aVoid -> {
                     BookingSyncScheduler.requestImmediateSync(this, "rental_pickup");
                     Toast.makeText(this, "Pickup photo uploaded! You can now start your journey.", Toast.LENGTH_SHORT).show();

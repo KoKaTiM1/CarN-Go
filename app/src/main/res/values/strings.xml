@@ -86,6 +86,8 @@
     <string name="location_unavailable">Could not get your current location</string>
     <string name="current_location_label">Current location</string>
     <string name="location_unavailable_label">Location unavailable</string>
+    <string name="location_not_found_radius_warning">Location not found. The car will save, but radius search may not work for it. Better use the GPS button.</string>
+    <string name="location_resolved_radius_ready">Location resolved. Radius search can use this car.</string>
     <string name="distance_away_only">%.1f km away</string>
     <string name="location_with_distance">%1$s • %2$.1f km away</string>
     <string name="failed_to_load_cars">Failed to load cars</string>
@@ -120,5 +122,14 @@
     <string name="splash_results_title">Top 3 closest right now</string>
     <string name="splash_results_subtitle">These are the strongest matches based on your current location and search radius.</string>
     <string name="splash_results_empty_title">Nothing nearby in range</string>
+
+    <string name="no_internet">No internet connection. Please check your network and try again.</string>
+    <string name="error_window_conflicts_booking">Cannot shrink the availability window — an existing booking falls outside the new dates. Cancel that booking first or choose a wider window.</string>
+    <string name="completion_rating_title">Rate This Car</string>
+    <string name="completion_rating_description">Choose a rating from 1.0 to 5.0 stars before finishing the rental.</string>
+    <string name="rating_required_hint">Select a rating to complete the rental</string>
+    <string name="selected_rating_value">Selected rating: %1$.1f stars</string>
+    <string name="rental_completed_successfully">Rental completed successfully!</string>
+    <string name="rating_completion_error">Error: %1$s</string>
 
 </resources>

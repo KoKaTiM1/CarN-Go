@@ -17,7 +17,6 @@ import android.os.Handler;
 import android.os.Looper;
 import android.provider.MediaStore;
 import android.provider.Settings;
-import android.util.Base64;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -35,16 +34,19 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.core.content.ContextCompat;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.Priority;
-import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.R;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.adapter.CarAdapter;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.data.BookingRepository;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.data.CarRepository;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.firebase.FirestoreHelper;
 import com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Car;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.util.ImageCodec;
+import com.yardenbental_danielcohen_shlomoedelstein.carn_go.util.NetworkUtils;
 
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
@@ -60,6 +62,7 @@ import java.util.TimeZone;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class MyCarsActivity extends BaseNavigationActivity {
 
@@ -77,12 +80,15 @@ public class MyCarsActivity extends BaseNavigationActivity {
 
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private final CarRepository carRepository = new CarRepository();
+    private final BookingRepository bookingRepository = new BookingRepository();
 
     private ActivityResultLauncher<String> pickImageLauncher;
     private ActivityResultLauncher<Intent> cameraLauncher;
     private ActivityResultLauncher<String[]> locationPermissionLauncher;
     private FusedLocationProviderClient fusedLocationClient;
     private Runnable pendingLocationAction;
+    private SwipeRefreshLayout swipeRefresh;
     private ListView rvMyCars;
     private CarAdapter adapter;
     private final List<Car> myCarsList = new ArrayList<>();
@@ -140,9 +146,15 @@ public class MyCarsActivity extends BaseNavigationActivity {
                 }
         );
 
+        swipeRefresh = view.findViewById(R.id.swipeRefreshMyCars);
         rvMyCars = view.findViewById(R.id.rvMyCars);
         layoutEmpty = view.findViewById(R.id.layoutEmpty);
         addCarBtn = view.findViewById(R.id.btnAddCar);
+
+        if (swipeRefresh != null) {
+            swipeRefresh.setOnRefreshListener(() -> fetchMyCars());
+            swipeRefresh.setOnChildScrollUpCallback((parent, child) -> rvMyCars != null && rvMyCars.canScrollVertically(-1));
+        }
 
         adapter = new CarAdapter(myCarsList, new CarAdapter.OnCarClickListener() {
             @Override
@@ -184,69 +196,45 @@ public class MyCarsActivity extends BaseNavigationActivity {
         fetchMyCars();
     }
 
+    @Override
+    public void onResume() {
+        super.onResume();
+        fetchMyCars();
+    }
+
     private void fetchMyCars() {
+        if (!NetworkUtils.checkAndToast(this)) {
+            if (swipeRefresh != null) swipeRefresh.setRefreshing(false);
+            return;
+        }
         String currentUserId = FirestoreHelper.getCurrentUserId(MyCarsActivity.this);
-        if (currentUserId == null) return;
+        if (currentUserId == null) {
+            if (swipeRefresh != null) swipeRefresh.setRefreshing(false);
+            return;
+        }
 
-        FirebaseFirestore db = FirebaseFirestore.getInstance();
-        db.collection("cars")
-                .whereEqualTo("ownerId", currentUserId)
-                .get()
-                .addOnSuccessListener(queryDocumentSnapshots -> {
-                    myCarsList.clear();
-                    for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
-                        try {
-                            String name = document.getString("name");
-                            String description = document.getString("description");
-                            String type = document.getString("type");
-                            String location = document.getString("location");
-                            Double latitude = document.getDouble("latitude");
-                            Double longitude = document.getDouble("longitude");
-                            Double price = document.getDouble("pricePerHour");
-                            Double rating = document.getDouble("rating");
-                            String imageUrl = document.getString("imageUrl");
-                            String transmission = document.getString("transmission");
-                            Long seatsLong = document.getLong("seats");
-                            int seats = seatsLong != null ? seatsLong.intValue() : 5;
-                            String fuelType = document.getString("fuelType");
-                            String ownerId = document.getString("ownerId");
-                            Long availableFrom = document.getLong("availableFrom");
-                            Long availableTo = document.getLong("availableTo");
+        carRepository.fetchCarsOwnedBy(this, currentUserId, new CarRepository.CarsCallback() {
+            @Override
+            public void onSuccess(List<Car> cars) {
+                if (swipeRefresh != null) swipeRefresh.setRefreshing(false);
+                myCarsList.clear();
+                myCarsList.addAll(cars);
+                if (myCarsList.isEmpty()) {
+                    layoutEmpty.setVisibility(View.VISIBLE);
+                    rvMyCars.setVisibility(View.GONE);
+                } else {
+                    layoutEmpty.setVisibility(View.GONE);
+                    rvMyCars.setVisibility(View.VISIBLE);
+                }
+                adapter.notifyDataSetChanged();
+            }
 
-                            myCarsList.add(new Car(
-                                    document.getId(),
-                                    name != null ? name : getString(R.string.unknown),
-                                    description,
-                                    type != null ? type : getString(R.string.standard),
-                                    location != null ? location : getString(R.string.unknown),
-                                    latitude,
-                                    longitude,
-                                    price != null ? price : 0.0,
-                                    rating != null ? rating : 5.0,
-                                    imageUrl,
-                                    transmission != null ? transmission : getString(R.string.auto),
-                                    seats,
-                                    fuelType != null ? fuelType : getString(R.string.gas),
-                                    "",
-                                    ownerId != null ? ownerId : "",
-                                    availableFrom != null ? availableFrom : 0,
-                                    availableTo != null ? availableTo : 0
-                            ));
-                        } catch (Exception e) {
-                            Log.e("MyCarsActivity", "Error parsing car", e);
-                        }
-                    }
-
-                    if (myCarsList.isEmpty()) {
-                        layoutEmpty.setVisibility(View.VISIBLE);
-                        rvMyCars.setVisibility(View.GONE);
-                    } else {
-                        layoutEmpty.setVisibility(View.GONE);
-                        rvMyCars.setVisibility(View.VISIBLE);
-                    }
-                    adapter.notifyDataSetChanged();
-                })
-                .addOnFailureListener(e -> Toast.makeText(MyCarsActivity.this, R.string.failed_load_cars, Toast.LENGTH_SHORT).show());
+            @Override
+            public void onError(Exception error) {
+                if (swipeRefresh != null) swipeRefresh.setRefreshing(false);
+                Toast.makeText(MyCarsActivity.this, R.string.failed_load_cars, Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     private void showEditCarDialog(Car car) {
@@ -297,18 +285,41 @@ public class MyCarsActivity extends BaseNavigationActivity {
                 return;
             }
 
-            Double latitude = formData.location.equals(locationDraft.displayName) ? locationDraft.latitude : null;
-            Double longitude = formData.location.equals(locationDraft.displayName) ? locationDraft.longitude : null;
-            updateCarData(car.getId(), formData.name, formData.description, formData.price, formData.location, latitude, longitude,
-                    formData.type, formData.transmission, formData.seats, formData.fuelType,
-                    selectedStartTimestamp, selectedEndTimestamp);
-            dialog.dismiss();
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(false);
+            resolveLocationCoordinates(formData.location, locationDraft, resolvedLocation -> {
+                updateCarData(car.getId(), formData.name, formData.description, formData.price, formData.location,
+                        resolvedLocation.latitude, resolvedLocation.longitude,
+                        formData.type, formData.transmission, formData.seats, formData.fuelType,
+                        selectedStartTimestamp, selectedEndTimestamp);
+                dialog.dismiss();
+            });
         }));
         dialog.show();
     }
 
     private void updateCarData(String carId, String name, String description, double price, String location, Double latitude, Double longitude, String type, String transmission, int seats, String fuelType, long start, long end) {
-        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        if (!NetworkUtils.checkAndToast(this)) return;
+
+        bookingRepository.fetchActiveBookingsForCar(carId, new BookingRepository.BookingsCallback() {
+            @Override
+            public void onSuccess(List<com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Booking> bookings) {
+                for (com.yardenbental_danielcohen_shlomoedelstein.carn_go.model.Booking booking : bookings) {
+                    if (booking.getStartTime() < start || booking.getEndTime() > end) {
+                        Toast.makeText(MyCarsActivity.this, R.string.error_window_conflicts_booking, Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                }
+                saveCarUpdate(carId, name, description, price, location, latitude, longitude, type, transmission, seats, fuelType, start, end);
+            }
+
+            @Override
+            public void onError(Exception error) {
+                Toast.makeText(MyCarsActivity.this, getString(R.string.error_updating, error.getMessage()), Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void saveCarUpdate(String carId, String name, String description, double price, String location, Double latitude, Double longitude, String type, String transmission, int seats, String fuelType, long start, long end) {
         Map<String, Object> updates = new HashMap<>();
         updates.put("name", name);
         updates.put("description", description);
@@ -323,8 +334,7 @@ public class MyCarsActivity extends BaseNavigationActivity {
         updates.put("availableFrom", start);
         updates.put("availableTo", end);
 
-        db.collection("cars").document(carId)
-                .update(updates)
+        carRepository.updateCar(carId, updates)
                 .addOnSuccessListener(aVoid -> {
                     Toast.makeText(MyCarsActivity.this, R.string.car_updated, Toast.LENGTH_SHORT).show();
                     fetchMyCars();
@@ -336,13 +346,15 @@ public class MyCarsActivity extends BaseNavigationActivity {
         new AlertDialog.Builder(MyCarsActivity.this)
                 .setTitle(R.string.delete_car)
                 .setMessage(R.string.delete_confirmation)
-                .setPositiveButton(R.string.delete, (dialog, which) -> FirebaseFirestore.getInstance().collection("cars").document(car.getId())
-                        .delete()
+                .setPositiveButton(R.string.delete, (dialog, which) -> {
+                    if (!NetworkUtils.checkAndToast(MyCarsActivity.this)) return;
+                    carRepository.deleteCar(car.getId())
                         .addOnSuccessListener(aVoid -> {
                             Toast.makeText(MyCarsActivity.this, R.string.car_deleted, Toast.LENGTH_SHORT).show();
                             fetchMyCars();
                         })
-                        .addOnFailureListener(e -> Toast.makeText(MyCarsActivity.this, getString(R.string.error_deleting, e.getMessage()), Toast.LENGTH_SHORT).show()))
+                        .addOnFailureListener(e -> Toast.makeText(MyCarsActivity.this, getString(R.string.error_deleting, e.getMessage()), Toast.LENGTH_SHORT).show());
+                })
                 .setNegativeButton(R.string.cancel, null)
                 .show();
     }
@@ -387,12 +399,14 @@ public class MyCarsActivity extends BaseNavigationActivity {
                 return;
             }
 
-            Double latitude = formData.location.equals(locationDraft.displayName) ? locationDraft.latitude : null;
-            Double longitude = formData.location.equals(locationDraft.displayName) ? locationDraft.longitude : null;
-            uploadCarData(formData.name, formData.description, formData.price, formData.location, latitude, longitude,
-                    formData.type, formData.transmission, formData.seats, formData.fuelType,
-                    imageSource, selectedStartTimestamp, selectedEndTimestamp);
-            dialog.dismiss();
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(false);
+            resolveLocationCoordinates(formData.location, locationDraft, resolvedLocation -> {
+                uploadCarData(formData.name, formData.description, formData.price, formData.location,
+                        resolvedLocation.latitude, resolvedLocation.longitude,
+                        formData.type, formData.transmission, formData.seats, formData.fuelType,
+                        imageSource, selectedStartTimestamp, selectedEndTimestamp);
+                dialog.dismiss();
+            });
         }));
         dialog.show();
     }
@@ -650,7 +664,7 @@ public class MyCarsActivity extends BaseNavigationActivity {
     }
 
     private void uploadCarData(String carName, String description, double price, String location, Double latitude, Double longitude, String type, String transmission, int seats, String fuelType, Object imageSource, long start, long end) {
-        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        if (!NetworkUtils.checkAndToast(this)) return;
         Toast.makeText(MyCarsActivity.this, R.string.processing_listing, Toast.LENGTH_SHORT).show();
 
         executorService.execute(() -> {
@@ -669,11 +683,7 @@ public class MyCarsActivity extends BaseNavigationActivity {
                 }
 
                 Bitmap scaledBitmap = Bitmap.createScaledBitmap(bitmap, 640, 480, true);
-                ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-                scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 70, outputStream);
-
-                byte[] byteArray = outputStream.toByteArray();
-                String encodedImage = Base64.encodeToString(byteArray, Base64.DEFAULT);
+                String encodedImage = ImageCodec.encodeJpegBase64(scaledBitmap, 70);
 
                 Map<String, Object> carData = new HashMap<>();
                 carData.put("name", carName);
@@ -685,14 +695,15 @@ public class MyCarsActivity extends BaseNavigationActivity {
                 carData.put("type", type);
                 carData.put("imageUrl", encodedImage);
                 carData.put("ownerId", FirestoreHelper.getCurrentUserId(MyCarsActivity.this));
-                carData.put("rating", 5.0);
+                carData.put("rating", 0.0);
+                carData.put("ratingCount", 0);
                 carData.put("transmission", transmission);
                 carData.put("seats", seats);
                 carData.put("fuelType", fuelType);
                 carData.put("availableFrom", start);
                 carData.put("availableTo", end);
 
-                db.collection("cars").add(carData)
+                carRepository.addCar(carData)
                         .addOnSuccessListener(documentReference -> mainHandler.post(() -> {
                             Toast.makeText(MyCarsActivity.this, R.string.listing_added, Toast.LENGTH_SHORT).show();
                             fetchMyCars();
@@ -747,6 +758,7 @@ public class MyCarsActivity extends BaseNavigationActivity {
                 || ContextCompat.checkSelfPermission(MyCarsActivity.this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
     }
 
+    @android.annotation.SuppressLint("MissingPermission")
     private void requestCurrentLocation(LocationCallback callback) {
         if (!hasLocationPermission()) {
             return;
@@ -791,6 +803,70 @@ public class MyCarsActivity extends BaseNavigationActivity {
         });
     }
 
+    private void resolveLocationCoordinates(String typedLocation,
+                                            LocationDraft locationDraft,
+                                            ResolvedLocationCallback onResolved) {
+        if (typedLocation.equals(locationDraft.displayName)
+                && locationDraft.latitude != null
+                && locationDraft.longitude != null) {
+            onResolved.onResolved(new ResolvedLocation(locationDraft.latitude, locationDraft.longitude));
+            return;
+        }
+
+        geocodeLocationName(typedLocation, resolvedLocation -> {
+            if (resolvedLocation.latitude == null || resolvedLocation.longitude == null) {
+                Toast.makeText(
+                        MyCarsActivity.this,
+                        R.string.location_not_found_radius_warning,
+                        Toast.LENGTH_LONG
+                ).show();
+            } else {
+                Toast.makeText(
+                        MyCarsActivity.this,
+                        R.string.location_resolved_radius_ready,
+                        Toast.LENGTH_SHORT
+                ).show();
+            }
+            onResolved.onResolved(resolvedLocation);
+        });
+    }
+
+    private void geocodeLocationName(String locationName,
+                                     ResolvedLocationCallback callback) {
+        AtomicBoolean delivered = new AtomicBoolean(false);
+        mainHandler.postDelayed(() -> {
+            if (delivered.compareAndSet(false, true)) {
+                callback.onResolved(new ResolvedLocation(null, null));
+            }
+        }, 2500);
+
+        executorService.execute(() -> {
+            Double latitude = null;
+            Double longitude = null;
+            try {
+                if (Geocoder.isPresent()) {
+                    Geocoder geocoder = new Geocoder(MyCarsActivity.this, Locale.getDefault());
+                    List<Address> addresses = geocoder.getFromLocationName(locationName, 1);
+                    if (addresses != null && !addresses.isEmpty()) {
+                        Address address = addresses.get(0);
+                        latitude = address.getLatitude();
+                        longitude = address.getLongitude();
+                    }
+                }
+            } catch (Exception e) {
+                Log.w("MyCarsActivity", "Failed to geocode typed location", e);
+            }
+
+            Double finalLatitude = latitude;
+            Double finalLongitude = longitude;
+            mainHandler.post(() -> {
+                if (delivered.compareAndSet(false, true)) {
+                    callback.onResolved(new ResolvedLocation(finalLatitude, finalLongitude));
+                }
+            });
+        });
+    }
+
     private String formatAddress(Address address) {
         List<String> parts = new ArrayList<>();
         if (address.getThoroughfare() != null && !address.getThoroughfare().isEmpty()) {
@@ -829,6 +905,20 @@ public class MyCarsActivity extends BaseNavigationActivity {
 
     private interface AddressCallback {
         void onAddressResolved(String address);
+    }
+
+    private interface ResolvedLocationCallback {
+        void onResolved(ResolvedLocation location);
+    }
+
+    private static class ResolvedLocation {
+        final Double latitude;
+        final Double longitude;
+
+        ResolvedLocation(Double latitude, Double longitude) {
+            this.latitude = latitude;
+            this.longitude = longitude;
+        }
     }
 
     private static class CarFormData {
