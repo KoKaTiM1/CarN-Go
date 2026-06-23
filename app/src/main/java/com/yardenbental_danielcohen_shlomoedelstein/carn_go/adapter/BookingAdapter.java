@@ -71,7 +71,14 @@ public class BookingAdapter extends BaseAdapter {
         Booking booking = getItem(position);
         holder.tvCarName.setText(booking.getCarName());
 
-        String status = BookingStatus.normalize(booking.getStatus());
+        String status = BookingStatus.resolveNextStatus(
+                booking.getStatus(),
+                booking.getStartTime(),
+                booking.getEndTime(),
+                booking.getStartPhotoUrl(),
+                booking.getEndPhotoUrl(),
+                System.currentTimeMillis()
+        );
         holder.tvStatus.setText(status);
         if (BookingStatus.APPROVED.equals(status) || BookingStatus.ACTIVE.equals(status)) {
             holder.tvStatus.setTextColor(context.getColor(R.color.primary));

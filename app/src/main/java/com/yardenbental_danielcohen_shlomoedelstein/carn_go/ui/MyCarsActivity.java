@@ -62,6 +62,7 @@ import java.util.TimeZone;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class MyCarsActivity extends BaseNavigationActivity {
 
@@ -284,12 +285,14 @@ public class MyCarsActivity extends BaseNavigationActivity {
                 return;
             }
 
-            Double latitude = formData.location.equals(locationDraft.displayName) ? locationDraft.latitude : null;
-            Double longitude = formData.location.equals(locationDraft.displayName) ? locationDraft.longitude : null;
-            updateCarData(car.getId(), formData.name, formData.description, formData.price, formData.location, latitude, longitude,
-                    formData.type, formData.transmission, formData.seats, formData.fuelType,
-                    selectedStartTimestamp, selectedEndTimestamp);
-            dialog.dismiss();
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(false);
+            resolveLocationCoordinates(formData.location, locationDraft, resolvedLocation -> {
+                updateCarData(car.getId(), formData.name, formData.description, formData.price, formData.location,
+                        resolvedLocation.latitude, resolvedLocation.longitude,
+                        formData.type, formData.transmission, formData.seats, formData.fuelType,
+                        selectedStartTimestamp, selectedEndTimestamp);
+                dialog.dismiss();
+            });
         }));
         dialog.show();
     }
@@ -396,12 +399,14 @@ public class MyCarsActivity extends BaseNavigationActivity {
                 return;
             }
 
-            Double latitude = formData.location.equals(locationDraft.displayName) ? locationDraft.latitude : null;
-            Double longitude = formData.location.equals(locationDraft.displayName) ? locationDraft.longitude : null;
-            uploadCarData(formData.name, formData.description, formData.price, formData.location, latitude, longitude,
-                    formData.type, formData.transmission, formData.seats, formData.fuelType,
-                    imageSource, selectedStartTimestamp, selectedEndTimestamp);
-            dialog.dismiss();
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(false);
+            resolveLocationCoordinates(formData.location, locationDraft, resolvedLocation -> {
+                uploadCarData(formData.name, formData.description, formData.price, formData.location,
+                        resolvedLocation.latitude, resolvedLocation.longitude,
+                        formData.type, formData.transmission, formData.seats, formData.fuelType,
+                        imageSource, selectedStartTimestamp, selectedEndTimestamp);
+                dialog.dismiss();
+            });
         }));
         dialog.show();
     }
@@ -798,6 +803,70 @@ public class MyCarsActivity extends BaseNavigationActivity {
         });
     }
 
+    private void resolveLocationCoordinates(String typedLocation,
+                                            LocationDraft locationDraft,
+                                            ResolvedLocationCallback onResolved) {
+        if (typedLocation.equals(locationDraft.displayName)
+                && locationDraft.latitude != null
+                && locationDraft.longitude != null) {
+            onResolved.onResolved(new ResolvedLocation(locationDraft.latitude, locationDraft.longitude));
+            return;
+        }
+
+        geocodeLocationName(typedLocation, resolvedLocation -> {
+            if (resolvedLocation.latitude == null || resolvedLocation.longitude == null) {
+                Toast.makeText(
+                        MyCarsActivity.this,
+                        R.string.location_not_found_radius_warning,
+                        Toast.LENGTH_LONG
+                ).show();
+            } else {
+                Toast.makeText(
+                        MyCarsActivity.this,
+                        R.string.location_resolved_radius_ready,
+                        Toast.LENGTH_SHORT
+                ).show();
+            }
+            onResolved.onResolved(resolvedLocation);
+        });
+    }
+
+    private void geocodeLocationName(String locationName,
+                                     ResolvedLocationCallback callback) {
+        AtomicBoolean delivered = new AtomicBoolean(false);
+        mainHandler.postDelayed(() -> {
+            if (delivered.compareAndSet(false, true)) {
+                callback.onResolved(new ResolvedLocation(null, null));
+            }
+        }, 2500);
+
+        executorService.execute(() -> {
+            Double latitude = null;
+            Double longitude = null;
+            try {
+                if (Geocoder.isPresent()) {
+                    Geocoder geocoder = new Geocoder(MyCarsActivity.this, Locale.getDefault());
+                    List<Address> addresses = geocoder.getFromLocationName(locationName, 1);
+                    if (addresses != null && !addresses.isEmpty()) {
+                        Address address = addresses.get(0);
+                        latitude = address.getLatitude();
+                        longitude = address.getLongitude();
+                    }
+                }
+            } catch (Exception e) {
+                Log.w("MyCarsActivity", "Failed to geocode typed location", e);
+            }
+
+            Double finalLatitude = latitude;
+            Double finalLongitude = longitude;
+            mainHandler.post(() -> {
+                if (delivered.compareAndSet(false, true)) {
+                    callback.onResolved(new ResolvedLocation(finalLatitude, finalLongitude));
+                }
+            });
+        });
+    }
+
     private String formatAddress(Address address) {
         List<String> parts = new ArrayList<>();
         if (address.getThoroughfare() != null && !address.getThoroughfare().isEmpty()) {
@@ -836,6 +905,20 @@ public class MyCarsActivity extends BaseNavigationActivity {
 
     private interface AddressCallback {
         void onAddressResolved(String address);
+    }
+
+    private interface ResolvedLocationCallback {
+        void onResolved(ResolvedLocation location);
+    }
+
+    private static class ResolvedLocation {
+        final Double latitude;
+        final Double longitude;
+
+        ResolvedLocation(Double latitude, Double longitude) {
+            this.latitude = latitude;
+            this.longitude = longitude;
+        }
     }
 
     private static class CarFormData {

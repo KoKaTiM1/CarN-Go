@@ -86,6 +86,8 @@
     <string name="location_unavailable">Could not get your current location</string>
     <string name="current_location_label">Current location</string>
     <string name="location_unavailable_label">Location unavailable</string>
+    <string name="location_not_found_radius_warning">Location not found. The car will save, but radius search may not work for it. Better use the GPS button.</string>
+    <string name="location_resolved_radius_ready">Location resolved. Radius search can use this car.</string>
     <string name="distance_away_only">%.1f km away</string>
     <string name="location_with_distance">%1$s • %2$.1f km away</string>
     <string name="failed_to_load_cars">Failed to load cars</string>
